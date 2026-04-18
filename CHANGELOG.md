@@ -16,6 +16,20 @@ This project uses semantic versioning:
 
 ### Features
 
+- Nothing yet.
+
+### Bug Fixes
+
+- Nothing yet.
+
+### Security
+
+- Nothing yet.
+
+## [1.1.0] - 2026-04-18
+
+### Features
+
 - Added `APP_DIR` to the environment template and installer `.env` sync for fresh server installs.
 - Added GitHub Actions version suggestions for pull requests and automatic release tags from `VERSION` on `main`.
 - Added GitHub account setup documentation and a sanitized Apache/Laravel deployment script.
