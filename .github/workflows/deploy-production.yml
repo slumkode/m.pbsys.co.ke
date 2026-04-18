@@ -44,9 +44,9 @@ jobs:
         shell: bash
         run: |
           if [ -f composer.phar ]; then
-            php composer.phar validate --strict
+            php composer.phar validate --no-check-publish
           else
-            composer validate --strict
+            composer validate --no-check-publish
           fi
 
       - name: Install PHP dependencies

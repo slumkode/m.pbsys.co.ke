@@ -26,6 +26,7 @@ This project uses semantic versioning:
 - Expanded self-help into a project-owner guide and server-operations guide.
 - Added a tracked systemd template for the M-Pesa C2B worker service.
 - Added password-based SSH deployment support through the `DEPLOY_PASSWORD` GitHub Actions secret.
+- Allowed Laravel runtime `.gitignore` keeper files in GitHub Actions and made Composer validation friendlier for the Laravel 7 project.
 
 ### Bug Fixes
 

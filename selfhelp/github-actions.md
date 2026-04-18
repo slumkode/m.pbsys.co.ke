@@ -128,11 +128,13 @@ Secret guard fails:
 - Check whether `.env`, `.vscode/`, logs, cache, database dumps, or private keys were staged.
 - Run `git status --short --ignored`.
 - Remove bad files from tracking with `git rm --cached path/to/file`.
+- Small `.gitignore` keeper files inside Laravel runtime folders are allowed.
 
 Composer fails:
 
 - Check `composer.json` and `composer.lock`.
 - The workflow uses `composer.phar` when it exists.
+- The workflow validates Composer files without publish-only strictness because this is an older Laravel 7 application.
 
 PHPUnit fails:
 

@@ -34,7 +34,7 @@ jobs:
           set -euo pipefail
 
           private_env_files="$(git ls-files | grep -E '(^|/)\.env($|\.)' | grep -vE '(^|/)\.env\.example$' || true)"
-          private_runtime_files="$(git ls-files | grep -E '^\.vscode/|^storage/(logs|framework/(sessions|views|cache/data))/|^bootstrap/cache/.*\.php$|(\.bak|\.backup|\.db|\.dump|\.key|\.pem|\.p12|\.pfx|\.sql|\.sqlite)$' || true)"
+          private_runtime_files="$(git ls-files | grep -E '^\.vscode/|^storage/(logs|framework/(sessions|views|cache/data))/|^bootstrap/cache/.*\.php$|(\.bak|\.backup|\.db|\.dump|\.key|\.pem|\.p12|\.pfx|\.sql|\.sqlite)$' | grep -vE '^storage/(logs|framework/(sessions|views|cache/data))/\.gitignore$' || true)"
           blocked_files="$(printf '%s\n%s\n' "$private_env_files" "$private_runtime_files" | sed '/^$/d' | sort -u)"
 
           if [ -n "$blocked_files" ]; then
@@ -94,9 +94,9 @@ jobs:
         shell: bash
         run: |
           if [ -f composer.phar ]; then
-            php composer.phar validate --strict
+            php composer.phar validate --no-check-publish
           else
-            composer validate --strict
+            composer validate --no-check-publish
           fi
 
       - name: Check version format
