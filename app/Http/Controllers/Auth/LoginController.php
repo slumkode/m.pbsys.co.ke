@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Providers\RouteServiceProvider;
+use App\Services\UserLoginActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 
@@ -109,6 +110,7 @@ class LoginController extends Controller
                     'shortcode' => '/shortcode',
                     'services' => '/services',
                     'transaction' => '/transaction',
+                    'transaction_reports' => '/transaction-reports',
                     'users' => '/users',
                     'audit_logs' => '/audit-logs',
                 ] as $permission => $path)
@@ -120,5 +122,15 @@ class LoginController extends Controller
                     }
 
                 return '/profile';
+            }
+
+        protected function authenticated(Request $request, $user)
+            {
+                $logger = app(UserLoginActivityLogger::class);
+                $logger->recordLogin($request, $user, $request->filled('remember'));
+
+                return redirect()->intended(
+                    $logger->preferredRedirectUrl($user, $request, $this->redirectTo())
+                );
             }
     }

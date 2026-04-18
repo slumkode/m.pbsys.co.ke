@@ -6,6 +6,7 @@
     @php($resolvedUrl = $displayUrl ?? ($log->url ?: 'N/A'))
     @php($diffSummary = $diffSummary ?? null)
     @php($changesDetected = isset($changesDetected) ? (bool) $changesDetected : ($displayOldValues !== $displayNewValues))
+    @php($loginActivity = $log->loginActivity ?? null)
 
     <div class="row audit-log-meta-row">
         <div class="col-md-3 col-sm-6 mb-3">
@@ -51,6 +52,69 @@
             @endif
         </div>
     </div>
+
+    @if($loginActivity)
+        <div class="border rounded p-3 mb-3 bg-white">
+            <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
+                <div>
+                    <strong>Login Session Details</strong>
+                    <div class="text-muted small">Linked to this audit entry from the user's active session.</div>
+                </div>
+                <span class="badge badge-light">Session #{{ $loginActivity->id }}</span>
+            </div>
+            <div class="row">
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <label class="input-label d-block">User</label>
+                    <div>{{ optional($loginActivity->user)->name ?: $log->user_name ?: 'N/A' }}</div>
+                    <small class="text-muted">{{ optional($loginActivity->user)->email ?: optional($loginActivity->user)->username }}</small>
+                </div>
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <label class="input-label d-block">Login / Last Seen</label>
+                    <div>{{ optional($loginActivity->login_at)->format('d M Y, H:i:s') ?: 'N/A' }}</div>
+                    <small class="text-muted">Last seen: {{ optional($loginActivity->last_seen_at)->format('d M Y, H:i:s') ?: 'N/A' }}</small>
+                </div>
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <label class="input-label d-block">Network</label>
+                    <div>{{ $loginActivity->ip_address ?: 'N/A' }}</div>
+                    @if($loginActivity->previous_ip_address)
+                        <small class="text-muted">Previous: {{ $loginActivity->previous_ip_address }}</small>
+                    @endif
+                </div>
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <label class="input-label d-block">Device</label>
+                    <div>{{ $loginActivity->device_type ?: 'Unknown' }} / {{ $loginActivity->browser ?: 'Unknown' }}</div>
+                    <small class="text-muted">{{ $loginActivity->platform ?: 'Unknown platform' }}</small>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3 mb-md-0">
+                    <label class="input-label d-block">Last Page</label>
+                    <div class="text-break">{{ $loginActivity->last_url ?: 'N/A' }}</div>
+                    @if($loginActivity->previous_url)
+                        <small class="text-muted text-break d-block">Previous: {{ $loginActivity->previous_url }}</small>
+                    @endif
+                </div>
+                <div class="col-md-6">
+                    <label class="input-label d-block">Browser Location</label>
+                    @if($loginActivity->latitude !== null && $loginActivity->longitude !== null)
+                        <div>
+                            {{ $loginActivity->latitude }}, {{ $loginActivity->longitude }}
+                            @if($loginActivity->location_accuracy)
+                                <span class="text-muted">({{ $loginActivity->location_accuracy }}m accuracy)</span>
+                            @endif
+                        </div>
+                        <small class="text-muted">
+                            Captured: {{ optional($loginActivity->location_captured_at)->format('d M Y, H:i:s') ?: 'N/A' }}
+                            <a target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat={{ $loginActivity->latitude }}&mlon={{ $loginActivity->longitude }}#map=16/{{ $loginActivity->latitude }}/{{ $loginActivity->longitude }}">Open map</a>
+                        </small>
+                    @else
+                        <div>N/A</div>
+                        <small class="text-muted">Browser location is only stored if the user grants permission.</small>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
 
     <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
         <div class="mb-2 mb-md-0">

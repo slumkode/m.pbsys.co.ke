@@ -27,10 +27,11 @@ This project uses semantic versioning:
 - Added a tracked systemd template for the M-Pesa C2B worker service.
 - Added password-based SSH deployment support through the `DEPLOY_PASSWORD` GitHub Actions secret.
 - Allowed Laravel runtime `.gitignore` keeper files in GitHub Actions and made Composer validation friendlier for the Laravel 7 project.
+- Added login activity tracking with audit-log links for login, logout, remembered sessions, IP changes, last page, browser/device details, and browser-approved location.
 
 ### Bug Fixes
 
-- Nothing yet.
+- Fixed the login remember-me checkbox so it uses Laravel's expected `remember` field and stays checked when the login page loads.
 
 ### Security
 

@@ -30,6 +30,53 @@
             }
         }
 
+        function rememberBrowserLocation() {
+            if (!navigator.geolocation || !window.localStorage) {
+                return;
+            }
+
+            var storageKey = 'mpbsys:last-location-check';
+            var now = Date.now();
+            var lastCheck = 0;
+
+            try {
+                lastCheck = parseInt(localStorage.getItem(storageKey) || '0', 10);
+            } catch (e) {
+                return;
+            }
+
+            if (lastCheck && now - lastCheck < (30 * 60 * 1000)) {
+                return;
+            }
+
+            try {
+                localStorage.setItem(storageKey, String(now));
+            } catch (e) {
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(function (position) {
+                $.ajax({
+                    type: 'POST',
+                    url: '{{ route('user-location.store') }}',
+                    headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                    data: {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy
+                    }
+                });
+            }, function () {
+                try {
+                    localStorage.setItem(storageKey, String(Date.now() + (24 * 60 * 60 * 1000)));
+                } catch (e) {}
+            }, {
+                enableHighAccuracy: false,
+                timeout: 8000,
+                maximumAge: 600000
+            });
+        }
+
         function updateServiceOwnerSelector(context) {
             var container = $(context);
             var shortcodeSelector = container.find('.service-shortcode-selector');
@@ -110,6 +157,7 @@
         }
 
         cleanupUiArtifacts();
+        rememberBrowserLocation();
         $(window).on('pageshow', cleanupUiArtifacts);
         $(window).on('beforeunload', cleanupUiArtifacts);
         $(document).on('hidden.bs.modal', '.modal', cleanupUiArtifacts);

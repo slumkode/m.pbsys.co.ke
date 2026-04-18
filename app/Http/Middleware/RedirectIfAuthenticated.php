@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Providers\RouteServiceProvider;
+use App\Services\UserLoginActivityLogger;
 use Closure;
 use Illuminate\Support\Facades\Auth;
 
@@ -19,7 +19,10 @@ class RedirectIfAuthenticated
     public function handle($request, Closure $next, $guard = null)
     {
         if (Auth::guard($guard)->check()) {
-            return redirect(RouteServiceProvider::HOME);
+            $user = Auth::guard($guard)->user();
+            $logger = app(UserLoginActivityLogger::class);
+
+            return redirect($logger->preferredRedirectUrl($user, $request, '/dashboard'));
         }
 
         return $next($request);

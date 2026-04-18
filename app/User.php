@@ -232,6 +232,11 @@ class User extends Authenticatable
         return $this->hasMany('App\Models\AccessEntry');
     }
 
+    public function loginActivities()
+    {
+        return $this->hasMany('App\Models\UserLoginActivity');
+    }
+
     public function assignedRoles()
     {
         return $this->belongsToMany('App\Models\Role', 'role_user')->withTimestamps();

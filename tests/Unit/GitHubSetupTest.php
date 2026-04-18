@@ -44,4 +44,20 @@ class GitHubSetupTest extends TestCase
     {
         $this->assertFileExists($this->rootPath.'/deploy/systemd/mpbsys_mpesa_c2b_worker.service');
     }
+
+    public function testLoginActivityTrackingFilesExist()
+    {
+        $this->assertFileExists($this->rootPath.'/app/Models/UserLoginActivity.php');
+        $this->assertFileExists($this->rootPath.'/app/Services/UserLoginActivityLogger.php');
+        $this->assertFileExists($this->rootPath.'/app/Http/Middleware/TrackAuthenticatedUserActivity.php');
+        $this->assertFileExists($this->rootPath.'/app/Http/Controllers/UserLocationController.php');
+    }
+
+    public function testLoginFormUsesLaravelRememberField()
+    {
+        $loginView = file_get_contents($this->rootPath.'/resources/views/auth/login.blade.php');
+
+        $this->assertStringContainsString('name="remember"', $loginView);
+        $this->assertStringContainsString('checked', $loginView);
+    }
 }

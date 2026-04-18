@@ -10,6 +10,7 @@ class AuditLog extends Model
 
     protected $fillable = [
         'user_id',
+        'login_activity_id',
         'user_name',
         'action',
         'auditable_type',
@@ -42,6 +43,11 @@ class AuditLog extends Model
     public function restoredBy()
     {
         return $this->belongsTo('App\User', 'restored_by');
+    }
+
+    public function loginActivity()
+    {
+        return $this->belongsTo('App\Models\UserLoginActivity', 'login_activity_id');
     }
 
     public function canBeRestored()

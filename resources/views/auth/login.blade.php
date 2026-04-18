@@ -63,8 +63,8 @@
 
                                     <div>
                                         <div class="custom-control custom-checkbox align-items-center">
-                                            <input type="checkbox" class="custom-control-input" value="remember-me" name="remember-me" checked>
-                                            <label class="custom-control-label text-small">Remember me next time</label>
+                                            <input type="checkbox" class="custom-control-input" id="remember" value="1" name="remember" checked>
+                                            <label class="custom-control-label text-small" for="remember">Remember me next time</label>
                                         </div>
                                     </div>
                                     <div class="text-center mt-3">

@@ -91,6 +91,24 @@ Before merging into `main`, confirm:
 - `VERSION` and `CHANGELOG.md` are updated if this is a release.
 - Deployment secrets exist if the change will deploy.
 
+## Login Activity And Audit Logs
+
+The app records login activity with free, built-in tools:
+
+- Laravel auth/session events record login, logout, remembered sessions, IP changes, and last page visited.
+- Browser location uses the standard browser geolocation permission prompt. Nothing is stored unless the browser/user allows it.
+- No paid tracking service is required.
+
+Review the data here:
+
+```text
+Audit Logs > View Changes
+```
+
+For authentication events, the details panel shows the linked login session, IP address, browser, platform, device type, last page, and browser location if it was permitted.
+
+If a user changes IP address during a session, the app writes an `Ip Changed` audit entry. If the browser reports a different location, the app writes `Location Recorded` or `Location Changed`.
+
 ## GitHub Token
 
 Do not save your GitHub token in the project.

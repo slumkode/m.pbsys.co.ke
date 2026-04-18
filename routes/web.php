@@ -58,6 +58,7 @@ Route::get('/audit-logs','AuditLogController@index')->name('audit-logs.index');
 Route::post('/audit-logs/datatable','AuditLogController@datatable')->name('audit-logs.datatable');
 Route::get('/audit-logs/{auditLog}/details','AuditLogController@details')->name('audit-logs.details');
 Route::post('/audit-logs/{auditLog}/restore','AuditLogController@restore')->name('audit-logs.restore');
+Route::post('/user-location','UserLocationController@store')->name('user-location.store');
 Route::post('/updaterecord','Payments@updaterecord');
 Route::get('/c2btest','Payments@c2btest');
 Route::middleware(['checkIp'])->group(function () {

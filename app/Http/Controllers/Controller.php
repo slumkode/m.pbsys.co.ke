@@ -638,6 +638,11 @@ class Controller extends BaseController
             'ip_address' => $request->ip(),
         ];
 
+        if (Schema::hasColumn('audit_logs', 'login_activity_id')) {
+            $payload['login_activity_id'] = $options['login_activity_id']
+                ?? ($request->hasSession() ? $request->session()->get('auth.login_activity_id') : null);
+        }
+
         if (Schema::hasColumn('audit_logs', 'is_restorable')) {
             $payload['is_restorable'] = (bool) ($options['is_restorable'] ?? false);
         }

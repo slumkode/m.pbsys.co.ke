@@ -55,6 +55,7 @@ class AuditLogController extends Controller
         $dir = strtolower((string) $request->input('order.0.dir', 'desc')) === 'asc' ? 'asc' : 'desc';
         $hasRestorableFlag = Schema::hasColumn('audit_logs', 'is_restorable');
         $hasRestoreStatus = Schema::hasColumn('audit_logs', 'restored_at');
+        $hasLoginActivity = Schema::hasColumn('audit_logs', 'login_activity_id');
 
         $selectedColumns = [
             'id',
@@ -70,6 +71,10 @@ class AuditLogController extends Controller
 
         if ($hasRestorableFlag) {
             $selectedColumns[] = 'is_restorable';
+        }
+
+        if ($hasLoginActivity) {
+            $selectedColumns[] = 'login_activity_id';
         }
 
         if ($hasRestoreStatus) {
@@ -123,6 +128,9 @@ class AuditLogController extends Controller
         $authUser = $this->requireActionPermission($request, 'audit_logs', 'view');
         $auditLog = $this->resolveVisibleAuditLog($authUser, $auditLog);
         $auditLog->load('restoredBy:id,name');
+        if (Schema::hasColumn('audit_logs', 'login_activity_id')) {
+            $auditLog->load('loginActivity.user:id,name,email,username');
+        }
         $oldValues = $this->resolvedOldValues($auditLog);
         $newValues = $this->resolvedNewValues($auditLog);
         $diffSummary = $this->buildAuditJsonDiff($oldValues, $newValues);
