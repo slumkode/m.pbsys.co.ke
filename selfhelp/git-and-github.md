@@ -75,6 +75,33 @@ git push -u origin feature/add-new-report
 
 Open GitHub in the browser and create a pull request.
 
+## When A Feature Branch Is Ahead Of Main
+
+That is normal. It means your branch has commits that `main` does not have yet.
+
+Use this flow:
+
+```bash
+git push -u origin feature/add-new-report
+```
+
+Then open a pull request on GitHub:
+
+```text
+feature/add-new-report -> main
+```
+
+Let GitHub Actions pass. Review the files. Merge the pull request when it is ready.
+
+After merge, update your local `main`:
+
+```bash
+git checkout main
+git pull origin main
+```
+
+Then start the next branch from the updated `main`.
+
 ## Login With HTTPS
 
 When GitHub asks for a password over HTTPS, use a personal access token instead of your account password.

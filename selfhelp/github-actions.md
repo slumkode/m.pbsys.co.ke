@@ -33,6 +33,27 @@ What it does:
 - Suggests the next `MAJOR.FEATURE.BUG` version.
 - Creates a `vX.Y.Z` tag and GitHub release when `VERSION` changes on `main`.
 
+Production deploy:
+
+```text
+.github/workflows/deploy-production.yml
+```
+
+What it does:
+
+- Runs pre-deploy checks first.
+- Installs PHP dependencies.
+- Boots Laravel.
+- Runs PHPUnit.
+- Builds frontend assets.
+- Uploads files only after checks pass.
+- Keeps server `.env` and runtime storage out of the upload.
+- Runs Composer on the server.
+- Clears Laravel cache, config, routes, and views.
+- Runs migrations with `--force`.
+- Rebuilds config and view cache.
+- Restarts queues.
+
 ## How To Check Results
 
 Open:
@@ -42,6 +63,41 @@ https://github.com/slumkode/m.pbsys.co.ke/actions
 ```
 
 Click the newest workflow run. Open the failed job, then open the failed step.
+
+## Deployment Secrets
+
+The production deploy workflow needs these repository secrets:
+
+- `DEPLOY_HOST`: server IP or host name.
+- `DEPLOY_PORT`: SSH port, usually `22`.
+- `DEPLOY_USER`: SSH user, for example `root` or a deploy user.
+- `DEPLOY_PATH`: server project path, for example `/var/www/m.pbsys.co.ke`.
+- `DEPLOY_SSH_KEY`: private SSH key that can log in to the server.
+
+Add them in GitHub:
+
+```text
+Repository > Settings > Secrets and variables > Actions > New repository secret
+```
+
+Do not commit these values to the repository.
+
+## Deployment Flow
+
+Feature branches should not deploy directly.
+
+Normal flow:
+
+```bash
+git checkout -b feature/add-new-report
+git add .
+git commit -m "feature: add new report"
+git push -u origin feature/add-new-report
+```
+
+Then open a pull request. GitHub Actions tests the branch. After the pull request is merged into `main`, the production deploy workflow runs pre-deploy tests again, uploads the code, then refreshes Laravel on the server.
+
+Manual deploy is also available from the GitHub Actions tab, but run it from the `main` branch.
 
 ## Common Failures
 

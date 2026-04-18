@@ -22,6 +22,7 @@ This project uses semantic versioning:
 - Expanded the local pre-commit scanner to catch `DB_PASS` and similar secret key names.
 - Added self-help documentation for Git, GitHub Actions, hooks, `.gitignore`, and releases.
 - Added a lightweight GitHub setup smoke test for CI.
+- Added a production deploy workflow that runs tests before upload and refreshes Laravel cache, config, views, migrations, and queues on the server.
 
 ### Bug Fixes
 

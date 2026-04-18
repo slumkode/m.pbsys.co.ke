@@ -31,5 +31,6 @@ class GitHubSetupTest extends TestCase
     {
         $this->assertFileExists($this->rootPath.'/.github/workflows/laravel-safety.yml');
         $this->assertFileExists($this->rootPath.'/.github/workflows/versioning.yml');
+        $this->assertFileExists($this->rootPath.'/.github/workflows/deploy-production.yml');
     }
 }

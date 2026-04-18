@@ -1,0 +1,212 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  predeploy-checks:
+    name: Pre-deploy checks
+    runs-on: ubuntu-24.04
+
+    env:
+      APP_ENV: testing
+      APP_DEBUG: false
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ":memory:"
+      CACHE_DRIVER: array
+      MAIL_MAILER: array
+      QUEUE_CONNECTION: sync
+      SESSION_DRIVER: array
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP 7.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          extensions: bcmath, ctype, curl, dom, fileinfo, gd, json, mbstring, openssl, pdo_mysql, pdo_sqlite, tokenizer, xml, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate Composer files
+        shell: bash
+        run: |
+          if [ -f composer.phar ]; then
+            php composer.phar validate --strict
+          else
+            composer validate --strict
+          fi
+
+      - name: Install PHP dependencies
+        shell: bash
+        run: |
+          if [ -f composer.phar ]; then
+            php composer.phar install --prefer-dist --no-interaction --no-progress
+          else
+            composer install --prefer-dist --no-interaction --no-progress
+          fi
+
+      - name: Prepare Laravel environment
+        shell: bash
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+          php artisan config:clear --ansi
+
+      - name: Check Laravel can boot
+        run: php artisan route:list --ansi
+
+      - name: Run PHPUnit
+        run: vendor/bin/phpunit --colors=always
+
+      - name: Set up Node.js 14
+        uses: actions/setup-node@v4
+        with:
+          node-version: "14"
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run prod
+
+  deploy:
+    name: Upload and refresh Laravel
+    runs-on: ubuntu-24.04
+    needs: predeploy-checks
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 14
+        uses: actions/setup-node@v4
+        with:
+          node-version: "14"
+          cache: npm
+
+      - name: Build deployable frontend assets
+        run: |
+          npm ci
+          npm run prod
+
+      - name: Validate deploy secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing GitHub Actions secret: ${name}"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "Deploy secrets are present."
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          port="${DEPLOY_PORT:-22}"
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$port" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload files to server
+        shell: bash
+        run: |
+          set -euo pipefail
+          port="${DEPLOY_PORT:-22}"
+
+          sudo apt-get update
+          sudo apt-get install -y rsync openssh-client
+
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${port}" \
+            --exclude=".env" \
+            --exclude=".git/" \
+            --exclude=".github/" \
+            --exclude=".vscode/" \
+            --exclude="node_modules/" \
+            --exclude="vendor/" \
+            --exclude="storage/logs/*" \
+            --exclude="storage/framework/cache/*" \
+            --exclude="storage/framework/sessions/*" \
+            --exclude="storage/framework/views/*" \
+            ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
+
+      - name: Refresh Laravel on server
+        shell: bash
+        run: |
+          set -euo pipefail
+          port="${DEPLOY_PORT:-22}"
+
+          ssh -i ~/.ssh/deploy_key -p "$port" "${DEPLOY_USER}@${DEPLOY_HOST}" "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+
+          mkdir -p \
+            bootstrap/cache \
+            storage/framework/cache \
+            storage/framework/sessions \
+            storage/framework/views \
+            storage/logs
+
+          if [ -f composer.phar ]; then
+            php composer.phar install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+          else
+            composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+          fi
+
+          php artisan optimize:clear || true
+          php artisan config:clear || true
+          php artisan cache:clear || true
+          php artisan route:clear || true
+          php artisan view:clear || true
+          php artisan migrate --force
+          php artisan storage:link || true
+          php artisan config:cache
+          php artisan view:cache || true
+          php artisan queue:restart || true
+          REMOTE
+
+      - name: Explain deploy result
+        shell: bash
+        run: |
+          {
+            echo "### Production deploy"
+            echo "Pre-deploy checks passed before upload."
+            echo "Files were synced to the server."
+            echo "Laravel dependencies, migrations, cache clears, config cache, view cache, and queue restart were run."
+          } >> "$GITHUB_STEP_SUMMARY"
