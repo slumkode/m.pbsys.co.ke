@@ -17,7 +17,7 @@ class GitHubSetupTest extends TestCase
     {
         $version = trim(file_get_contents($this->rootPath.'/VERSION'));
 
-        $this->assertMatchesRegularExpression('/^\d+\.\d+\.\d+$/', $version);
+        $this->assertRegExp('/^\d+\.\d+\.\d+$/', $version);
     }
 
     public function testEnvironmentTemplateIncludesAppDirectory()
