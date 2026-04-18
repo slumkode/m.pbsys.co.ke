@@ -98,6 +98,8 @@ jobs:
       DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+      WEB_USER: www-data
+      WEB_GROUP: www-data
 
     steps:
       - name: Checkout repository
@@ -195,16 +197,30 @@ jobs:
             ssh_command=(sshpass -e ssh -p "$port")
           fi
 
-          "${ssh_command[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'REMOTE'
+          "${ssh_command[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" "DEPLOY_PATH='${DEPLOY_PATH}' WEB_USER='${WEB_USER}' WEB_GROUP='${WEB_GROUP}' bash -s" <<'REMOTE'
           set -euo pipefail
           cd "$DEPLOY_PATH"
 
-          mkdir -p \
-            bootstrap/cache \
-            storage/framework/cache \
-            storage/framework/sessions \
-            storage/framework/views \
-            storage/logs
+          fix_laravel_permissions() {
+            mkdir -p \
+              bootstrap/cache \
+              storage/framework/cache \
+              storage/framework/sessions \
+              storage/framework/views \
+              storage/logs
+
+            if [ "$(id -u)" -eq 0 ]; then
+              chown -R "${WEB_USER}:${WEB_GROUP}" storage bootstrap/cache
+            elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+              sudo chown -R "${WEB_USER}:${WEB_GROUP}" storage bootstrap/cache
+            else
+              echo "Unable to chown Laravel writable directories; using chmod only."
+            fi
+
+            chmod -R ug+rwX storage bootstrap/cache
+          }
+
+          fix_laravel_permissions
 
           if [ -f composer.phar ]; then
             php composer.phar install --no-dev --prefer-dist --optimize-autoloader --no-interaction
@@ -222,6 +238,7 @@ jobs:
           php artisan config:cache
           php artisan view:cache || true
           php artisan queue:restart || true
+          fix_laravel_permissions
           REMOTE
 
       - name: Explain deploy result

@@ -26,6 +26,7 @@ The deploy job:
 - uploads files with `rsync`
 - excludes `.env`, `.git/`, `.github/`, `.vscode/`, `vendor/`, `node_modules/`, and runtime storage
 - runs Composer on the server
+- fixes Laravel write permissions for `storage/` and `bootstrap/cache/`
 - clears Laravel caches
 - runs migrations
 - rebuilds config and view cache
@@ -82,6 +83,28 @@ php artisan config:cache
 php artisan view:cache
 php artisan queue:restart
 ```
+
+## Fix Login Permission Errors
+
+If the browser cannot log in and the Laravel log says `storage/framework/views` or `bootstrap/cache` has `Permission denied`, Apache cannot write Laravel runtime files.
+
+Run this on the server:
+
+```bash
+cd /var/www/m.pbsys.co.ke
+
+sudo mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
+sudo chown -R www-data:www-data storage bootstrap/cache
+sudo find storage bootstrap/cache -type d -exec chmod 775 {} \;
+sudo find storage bootstrap/cache -type f -exec chmod 664 {} \;
+
+php artisan optimize:clear
+php artisan config:cache
+php artisan view:cache
+php artisan queue:restart
+```
+
+The deploy workflow also runs this permission repair, so this manual fix is mainly for emergency recovery or direct server edits.
 
 ## M-Pesa C2B Worker
 
