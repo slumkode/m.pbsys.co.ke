@@ -1,0 +1,264 @@
+name: Version helper
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+    branches:
+      - "**"
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: version-helper-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suggest-version:
+    name: Suggest next version
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate suggested version
+        id: version
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BRANCH: ${{ github.head_ref }}
+          BASE_BRANCH: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+
+          current="$(tr -d '[:space:]' < VERSION)"
+          if [[ ! "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::VERSION must use MAJOR.FEATURE.BUG format, for example 1.2.3."
+            exit 1
+          fi
+
+          git fetch origin "${BASE_BRANCH}" --depth=1
+          commit_subjects="$(git log --format=%s "origin/${BASE_BRANCH}..HEAD" || true)"
+          signal="$(printf '%s\n%s\n%s\n' "$PR_BRANCH" "$PR_TITLE" "$commit_subjects" | tr '[:upper:]' '[:lower:]')"
+
+          change_type="unknown"
+          if echo "$signal" | grep -Eq '(^|[[:space:]/:_-])(major|breaking|breaking change)([[:space:]/:_-]|$)|!:'; then
+            change_type="major"
+          elif echo "$signal" | grep -Eq '(^|[[:space:]/:_-])(feature|feat)([[:space:]/:_-]|$)'; then
+            change_type="feature"
+          elif echo "$signal" | grep -Eq '(^|[[:space:]/:_-])(bugfix|hotfix|fix|bug|patch)([[:space:]/:_-]|$)'; then
+            change_type="bug"
+          elif echo "$signal" | grep -Eq '(^|[[:space:]/:_-])(docs|doc|chore|ops)([[:space:]/:_-]|$)'; then
+            change_type="none"
+          fi
+
+          IFS=. read -r major feature bug <<< "$current"
+
+          case "$change_type" in
+            major)
+              next="$((major + 1)).0.0"
+              label="Major"
+              ;;
+            feature)
+              next="${major}.$((feature + 1)).0"
+              label="Feature"
+              ;;
+            bug)
+              next="${major}.${feature}.$((bug + 1))"
+              label="Bug fix"
+              ;;
+            none)
+              next="$current"
+              label="No release bump"
+              ;;
+            *)
+              next=""
+              label="Needs a change type"
+              ;;
+          esac
+
+          {
+            echo "current=${current}"
+            echo "change_type=${change_type}"
+            echo "next=${next}"
+            echo "label=${label}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Version suggestion"
+            echo "Current version: ${current}"
+            echo "Detected change type: ${label}"
+            if [ -n "$next" ]; then
+              echo "Suggested next version: ${next}"
+            else
+              echo "Suggested next version: choose a branch, PR title, or commit prefix such as major, feature, or fix."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment on pull request
+        uses: actions/github-script@v7
+        env:
+          CURRENT_VERSION: ${{ steps.version.outputs.current }}
+          NEXT_VERSION: ${{ steps.version.outputs.next }}
+          CHANGE_TYPE: ${{ steps.version.outputs.change_type }}
+          CHANGE_LABEL: ${{ steps.version.outputs.label }}
+        with:
+          script: |
+            const marker = '<!-- mpesa-mlp-version-suggestion -->';
+            const current = process.env.CURRENT_VERSION;
+            const next = process.env.NEXT_VERSION;
+            const changeType = process.env.CHANGE_TYPE;
+            const label = process.env.CHANGE_LABEL;
+
+            const examples = [
+              '`major/...` or `major:` for breaking changes',
+              '`feature/...`, `feat/...`, `feature:`, or `feat:` for feature releases',
+              '`bugfix/...`, `hotfix/...`, `fix:`, or `bug:` for bug-fix releases',
+            ].join('\n- ');
+
+            const body = next
+              ? [
+                  marker,
+                  'Version check:',
+                  '',
+                  `- Current version: \`${current}\``,
+                  `- Detected change type: \`${label}\``,
+                  `- Suggested next version: \`${next}\``,
+                  '',
+                  'Before merge, update `VERSION` and move the matching notes in `CHANGELOG.md` if this PR is a release.',
+                ].join('\n')
+              : [
+                  marker,
+                  'Version check:',
+                  '',
+                  `- Current version: \`${current}\``,
+                  '- Detected change type: `Needs a change type`',
+                  '',
+                  'I could not safely guess the next version. Use one of these signals:',
+                  `- ${examples}`,
+                ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.data.find((comment) => comment.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
+
+  tag-release:
+    name: Tag release
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::VERSION must use MAJOR.FEATURE.BUG format, for example 1.2.3."
+            exit 1
+          fi
+
+          tag="v${version}"
+          if git rev-parse "${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists."
+            echo "create_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "create_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag and GitHub release
+        if: steps.version.outputs.create_release == 'true'
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        with:
+          script: |
+            const fs = require('fs');
+            const version = process.env.VERSION;
+            const tag = process.env.TAG;
+            const { owner, repo } = context.repo;
+            const sha = context.sha;
+
+            await github.rest.git.createRef({
+              owner,
+              repo,
+              ref: `refs/tags/${tag}`,
+              sha,
+            });
+
+            let releaseNotes = `Release ${tag}`;
+            if (fs.existsSync('CHANGELOG.md')) {
+              const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+              const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const section = changelog.match(new RegExp(`## \\[${escaped}\\][\\s\\S]*?(?=\\n## \\[|$)`));
+              if (section) {
+                releaseNotes = section[0].trim();
+              }
+            }
+
+            await github.rest.repos.createRelease({
+              owner,
+              repo,
+              tag_name: tag,
+              target_commitish: sha,
+              name: tag,
+              body: releaseNotes,
+            });
+
+      - name: Explain release result
+        shell: bash
+        run: |
+          {
+            echo "### Release tag"
+            if [ "${{ steps.version.outputs.create_release }}" = "true" ]; then
+              echo "Created ${{ steps.version.outputs.tag }} from VERSION."
+            else
+              echo "${{ steps.version.outputs.tag }} already exists, so no new release was created."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

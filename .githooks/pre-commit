@@ -1,0 +1,71 @@
+#!/bin/sh
+set -eu
+
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR || true)"
+
+if [ -z "$staged_files" ]; then
+  exit 0
+fi
+
+fail=0
+
+private_env_files="$(printf '%s\n' "$staged_files" | grep -E '(^|/)\.env($|\.)' | grep -vE '(^|/)\.env\.example$' || true)"
+private_runtime_files="$(printf '%s\n' "$staged_files" | grep -E '^\.vscode/|^storage/(logs|framework/(sessions|views|cache/data))/|^bootstrap/cache/.*\.php$|(\.bak|\.backup|\.db|\.dump|\.key|\.pem|\.p12|\.pfx|\.sql|\.sqlite)$' | grep -vE '^storage/(logs|framework/(sessions|views|cache/data))/\.gitignore$' || true)"
+blocked_files="$(printf '%s\n%s\n' "$private_env_files" "$private_runtime_files" | sed '/^$/d' | sort -u)"
+
+if [ -n "$blocked_files" ]; then
+  echo "Hold up: these staged files should stay off GitHub:"
+  printf '%s\n' "$blocked_files" | sed 's/^/- /'
+  fail=1
+fi
+
+secret_findings=""
+old_ifs="$IFS"
+IFS='
+'
+
+for file in $staged_files; do
+  case "$file" in
+    *.blade.php|*.conf|*.env.example|*.ini|*.js|*.json|*.md|*.php|*.service|*.sh|*.txt|*.xml|*.yaml|*.yml|*/pre-commit)
+      findings=""
+      matches="$(git show ":$file" 2>/dev/null | grep -nEi '^[[:space:]]*[A-Za-z0-9_.-]*(PASSWORD|PASSWD|[_-]PASS|SECRET|TOKEN|API[_-]?KEY|APP_KEY|PRIVATE[_-]?KEY|CONSUMER(KEY|SECRET)|PASSKEY|CREDENTIAL)[A-Za-z0-9_.-]*[[:space:]]*[=:]' || true)"
+
+      for match in $matches; do
+        line_no="${match%%:*}"
+        line="${match#*:}"
+        key="$(printf '%s' "$line" | sed 's/^[[:space:]]*//; s/[[:space:]]*[=:].*$//')"
+        value="$(printf '%s' "$line" | sed 's/^[^=:]*[=:][[:space:]]*//')"
+        normalized="$(printf '%s' "$value" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' | tr -d "\"'\\\`," | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+
+        case "$normalized" in
+          ""|null|none|false|changeme|change_me|set-a-strong-password*|your_value_here*|your_database_password*|your_redis_password*|your_rabbitmq_password*|your_encrypted_credential*|your-secret-here*|env\(*|\$*)
+            continue
+            ;;
+        esac
+
+        findings="${findings}
+${file}:${line_no} has a filled ${key}"
+      done
+
+      if [ -n "$findings" ]; then
+        secret_findings="${secret_findings}
+${findings}"
+      fi
+      ;;
+  esac
+done
+
+IFS="$old_ifs"
+
+if [ -n "$secret_findings" ]; then
+  echo "These staged lines look like real credentials. Values are hidden here:"
+  printf '%s\n' "$secret_findings" | sed '/^$/d' | sed 's/^/- /'
+  fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "Commit blocked. Move real values to the server .env file or GitHub Actions secrets, then try again."
+  exit 1
+fi
+
+echo "Secret preflight passed."

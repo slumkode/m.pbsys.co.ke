@@ -1,0 +1,125 @@
+.btn-default {
+    border: solid 1px #cac7c7;
+}
+.btn-default:hover {
+    background: #f3f2f24f;
+}
+.dropdown-menu label {
+    display: block;
+    width: 100%;
+    padding: .35rem 1.5rem;
+    clear: both;
+    font-weight: bold;
+    color: #495057;
+    text-align: inherit;
+    white-space: nowrap;
+    background-color: transparent;
+    border: 0;
+}
+.indicator.danger {
+    background: #ff1744;
+}
+input.form-control.form-control-sm {
+    border-radius: 5px;
+}
+.custom-list-table thead th {
+    border-bottom: none;
+    border-top: none;
+}
+.line-divider {
+    border-bottom: 1px solid #e5e9f2;
+    margin: 2px 0 20px 0;
+}
+.ajax-loader, #otp-area {
+    display: none;
+}
+td.tr-no-data {
+    text-align: center;
+    font-style: italic;
+}
+.mt-0 {
+    margin-top: 0!important;
+}
+.mb-30 {
+    margin-bottom: 30px!important;
+}
+label.input-label {
+    display: block;
+    width: 100%;
+    height: calc(2.0125rem + 2px);
+    padding: .35rem .875rem;
+    padding-top: 0.35rem;
+    padding-right: 0.875rem;
+    padding-bottom: 0.35rem;
+    padding-left: 0.875rem;
+    font-size: .875rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #495057;
+    background-color: #f9f9f9;
+    background-clip: padding-box;
+    border: 1px solid #ced4da;
+    border-radius: .2rem;
+    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+    height: auto;
+    min-height: 35px;
+}
+table#datatables-buttons {
+    width: 100%!important;
+}
+.badge.badge-default {
+    color: #495057;
+    border: solid 1px #495057;
+}
+legend {
+    font-size: 1.0rem;
+    font-weight: bold;
+}
+ol.stats-list {
+    list-style: none;
+    padding: 0;
+    margin-block-start: 0!important;
+    margin-block-end: 0!important;
+}
+.card-body.stats-list-card {
+    padding: 10px 20px;
+}
+span.stats-description {
+    margin-left: 10px;
+}
+li.sidebar-item.active a {
+    background: #fafafa!important;
+}
+ol.stats-list li {
+    padding-bottom: 10px;
+}
+#register-area {
+    visibility: hidden;
+}
+footer.footer {
+    bottom: 0;
+    width: 100%;
+    position: sticky;
+}
+#api-key-area {
+    font-size: 18px;
+}
+.required_fields {
+    color: #f00;
+}
+.logo img {
+    height: 80px;
+}
+pre.snippet {
+    white-space: pre-line;
+    word-wrap: break-word;
+    text-align: justify;
+}
+.tab .nav-tabs .nav-link.active {
+    background: #2979ff!important;
+    color: #ffffff!important;
+}
+.border-light {
+    border: solid 1px rgba(24,28,33,0.06) !important;
+    background: #fff;
+}

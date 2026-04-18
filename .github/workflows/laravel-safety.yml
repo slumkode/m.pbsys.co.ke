@@ -1,0 +1,217 @@
+name: Laravel safety checks
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: laravel-safety-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-guard:
+    name: Secret guard
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Block private and generated files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          private_env_files="$(git ls-files | grep -E '(^|/)\.env($|\.)' | grep -vE '(^|/)\.env\.example$' || true)"
+          private_runtime_files="$(git ls-files | grep -E '^\.vscode/|^storage/(logs|framework/(sessions|views|cache/data))/|^bootstrap/cache/.*\.php$|(\.bak|\.backup|\.db|\.dump|\.key|\.pem|\.p12|\.pfx|\.sql|\.sqlite)$' || true)"
+          blocked_files="$(printf '%s\n%s\n' "$private_env_files" "$private_runtime_files" | sed '/^$/d' | sort -u)"
+
+          if [ -n "$blocked_files" ]; then
+            echo "::error::Private or generated files are tracked. Remove them from Git with git rm --cached before pushing again."
+            printf '%s\n' "$blocked_files" | sed 's/^/- /'
+            exit 1
+          fi
+
+          echo "No private runtime files are tracked."
+
+      - name: Scan for leaked secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -v "${PWD}:/repo" ghcr.io/gitleaks/gitleaks:latest detect --source="/repo" --redact --verbose --exit-code=1
+
+      - name: Explain secret guard result
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Secret guard"
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "I checked this upload for private runtime files and leaked credentials. Nothing sensitive was found."
+            else
+              echo "I found something that should stay off GitHub. The log above names the file while keeping secret values redacted."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  laravel-ci:
+    name: Laravel CI
+    runs-on: ubuntu-24.04
+
+    env:
+      APP_ENV: testing
+      APP_DEBUG: false
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ":memory:"
+      CACHE_DRIVER: array
+      MAIL_MAILER: array
+      QUEUE_CONNECTION: sync
+      SESSION_DRIVER: array
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP 7.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          extensions: bcmath, ctype, curl, dom, fileinfo, gd, json, mbstring, openssl, pdo_mysql, pdo_sqlite, tokenizer, xml, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate Composer files
+        shell: bash
+        run: |
+          if [ -f composer.phar ]; then
+            php composer.phar validate --strict
+          else
+            composer validate --strict
+          fi
+
+      - name: Check version format
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::VERSION must use MAJOR.FEATURE.BUG format, for example 1.2.3."
+            exit 1
+          fi
+          echo "Project version: ${version}"
+
+      - name: Install PHP dependencies
+        shell: bash
+        run: |
+          if [ -f composer.phar ]; then
+            php composer.phar install --prefer-dist --no-interaction --no-progress
+          else
+            composer install --prefer-dist --no-interaction --no-progress
+          fi
+
+      - name: Prepare Laravel environment
+        shell: bash
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+          php artisan config:clear --ansi
+
+      - name: Check routes can boot
+        run: php artisan route:list --ansi
+
+      - name: Run PHPUnit
+        run: vendor/bin/phpunit --colors=always
+
+      - name: Set up Node.js 14
+        uses: actions/setup-node@v4
+        with:
+          node-version: "14"
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run prod
+
+      - name: Explain CI result
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Laravel CI"
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "The PHP checks, Laravel boot check, PHPUnit suite, and frontend production build all passed."
+            else
+              echo "One of the app checks needs attention. The failed step above points to the exact place to fix."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  upload-note:
+    name: Upload note
+    runs-on: ubuntu-24.04
+    needs:
+      - secret-guard
+      - laravel-ci
+    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Leave a human-readable PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- mpesa-mlp-safety-comment -->';
+            const results = {
+              'Laravel CI': '${{ needs.laravel-ci.result }}',
+              'Secret guard': '${{ needs.secret-guard.result }}',
+            };
+            const allGreen = Object.values(results).every((result) => result === 'success');
+            const lines = Object.entries(results)
+              .map(([name, result]) => `- ${name}: ${result}`)
+              .join('\n');
+            const body = [
+              marker,
+              'Hi, I checked this upload.',
+              '',
+              allGreen
+                ? 'Everything passed. The app booted, tests ran, assets built, and the secret guard did not find private data.'
+                : 'One check needs attention before this should be merged. The workflow logs point to the file or command that failed, with secret values redacted.',
+              '',
+              lines,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.data.find((comment) => comment.body?.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
