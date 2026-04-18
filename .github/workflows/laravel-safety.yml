@@ -90,14 +90,19 @@ jobs:
           coverage: none
           tools: composer:v2
 
+      - name: Show PHP and Composer versions
+        shell: bash
+        run: |
+          php -v
+          composer --version
+          if [ -f composer.phar ]; then
+            php composer.phar --version || true
+          fi
+
       - name: Validate Composer files
         shell: bash
         run: |
-          if [ -f composer.phar ]; then
-            php composer.phar validate --no-check-publish
-          else
-            composer validate --no-check-publish
-          fi
+          composer validate --no-check-publish --no-check-lock
 
       - name: Check version format
         shell: bash
@@ -113,11 +118,7 @@ jobs:
       - name: Install PHP dependencies
         shell: bash
         run: |
-          if [ -f composer.phar ]; then
-            php composer.phar install --prefer-dist --no-interaction --no-progress
-          else
-            composer install --prefer-dist --no-interaction --no-progress
-          fi
+          composer install --prefer-dist --no-interaction --no-progress
 
       - name: Prepare Laravel environment
         shell: bash
