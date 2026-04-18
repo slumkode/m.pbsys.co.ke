@@ -1,0 +1,22 @@
+# file: /etc/systemd/system/mpbsys_mpesa_c2b_worker.service
+[Unit]
+Description=pbsys M-Pesa C2B RabbitMQ Queue Worker
+After=network.target rabbitmq-server.service mysql.service
+Wants=rabbitmq-server.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/m.pbsys.co.ke
+Environment=RABBITMQ_C2B_QUEUE=pbsys.mpesa.c2b.notifications
+Environment=RABBITMQ_TRANSACTION_STATUS_QUEUE=pbsys.mpesa.transaction_status.results
+ExecStart=/usr/bin/php /var/www/m.pbsys.co.ke/artisan mpesa:process-c2b-queue --sleep=3
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

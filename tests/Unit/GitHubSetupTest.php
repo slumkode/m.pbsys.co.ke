@@ -33,4 +33,15 @@ class GitHubSetupTest extends TestCase
         $this->assertFileExists($this->rootPath.'/.github/workflows/versioning.yml');
         $this->assertFileExists($this->rootPath.'/.github/workflows/deploy-production.yml');
     }
+
+    public function testSelfHelpOwnerDocumentationExists()
+    {
+        $this->assertFileExists($this->rootPath.'/selfhelp/project-owner-guide.md');
+        $this->assertFileExists($this->rootPath.'/selfhelp/server-operations.md');
+    }
+
+    public function testSystemdWorkerTemplateExists()
+    {
+        $this->assertFileExists($this->rootPath.'/deploy/systemd/mpbsys_mpesa_c2b_worker.service');
+    }
 }

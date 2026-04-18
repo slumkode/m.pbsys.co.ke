@@ -37,6 +37,15 @@ git checkout -b docs/update-self-help
 
 The version helper reads branch names, PR titles, and commit messages.
 
+Use the highest-impact label when a change fits more than one category. Major wins over feature, and feature wins over bug fix.
+
+Examples:
+
+- adding a new worker service template: feature
+- fixing a broken worker path: bug fix
+- changing deployment structure in a risky way: major
+- explaining how deployment works: docs
+
 ## Commit Prefixes
 
 Use:

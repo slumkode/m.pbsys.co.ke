@@ -96,6 +96,7 @@ jobs:
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
 
     steps:
       - name: Checkout repository
@@ -118,18 +119,23 @@ jobs:
           set -euo pipefail
           missing=0
 
-          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY; do
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH; do
             if [ -z "${!name:-}" ]; then
               echo "::error::Missing GitHub Actions secret: ${name}"
               missing=1
             fi
           done
 
+          if [ -z "${DEPLOY_SSH_KEY:-}" ] && [ -z "${DEPLOY_PASSWORD:-}" ]; then
+            echo "::error::Set DEPLOY_SSH_KEY or DEPLOY_PASSWORD as a GitHub Actions secret."
+            missing=1
+          fi
+
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi
 
-          echo "Deploy secrets are present."
+          echo "Deploy secrets are present. Authentication mode: $([ -n "${DEPLOY_SSH_KEY:-}" ] && echo ssh-key || echo password)"
 
       - name: Configure SSH
         shell: bash
@@ -139,8 +145,10 @@ jobs:
 
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          if [ -n "${DEPLOY_SSH_KEY:-}" ]; then
+            printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+          fi
           ssh-keyscan -p "$port" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
       - name: Upload files to server
@@ -150,10 +158,17 @@ jobs:
           port="${DEPLOY_PORT:-22}"
 
           sudo apt-get update
-          sudo apt-get install -y rsync openssh-client
+          sudo apt-get install -y rsync openssh-client sshpass
+
+          if [ -n "${DEPLOY_SSH_KEY:-}" ]; then
+            remote_shell="ssh -i ~/.ssh/deploy_key -p ${port}"
+          else
+            export SSHPASS="$DEPLOY_PASSWORD"
+            remote_shell="sshpass -e ssh -p ${port}"
+          fi
 
           rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p ${port}" \
+            -e "$remote_shell" \
             --exclude=".env" \
             --exclude=".git/" \
             --exclude=".github/" \
@@ -172,7 +187,14 @@ jobs:
           set -euo pipefail
           port="${DEPLOY_PORT:-22}"
 
-          ssh -i ~/.ssh/deploy_key -p "$port" "${DEPLOY_USER}@${DEPLOY_HOST}" "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'REMOTE'
+          if [ -n "${DEPLOY_SSH_KEY:-}" ]; then
+            ssh_command=(ssh -i ~/.ssh/deploy_key -p "$port")
+          else
+            export SSHPASS="$DEPLOY_PASSWORD"
+            ssh_command=(sshpass -e ssh -p "$port")
+          fi
+
+          "${ssh_command[@]}" "${DEPLOY_USER}@${DEPLOY_HOST}" "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'REMOTE'
           set -euo pipefail
           cd "$DEPLOY_PATH"
 

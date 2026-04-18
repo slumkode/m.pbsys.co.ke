@@ -2,6 +2,8 @@
 
 GitHub Actions runs automatically after you push commits or open a pull request.
 
+The owner should use Actions as the gatekeeper. If Actions fail, do not merge into `main` and do not deploy to the server.
+
 ## Workflows In This Project
 
 Laravel safety checks:
@@ -73,6 +75,9 @@ The production deploy workflow needs these repository secrets:
 - `DEPLOY_USER`: SSH user, for example `root` or a deploy user.
 - `DEPLOY_PATH`: server project path, for example `/var/www/m.pbsys.co.ke`.
 - `DEPLOY_SSH_KEY`: private SSH key that can log in to the server.
+- `DEPLOY_PASSWORD`: SSH password for password-based login.
+
+Use either `DEPLOY_SSH_KEY` or `DEPLOY_PASSWORD`. SSH keys are preferred, but password login is supported if that is how the server is configured. If both are present, the workflow uses the SSH key.
 
 Add them in GitHub:
 
@@ -81,6 +86,8 @@ Repository > Settings > Secrets and variables > Actions > New repository secret
 ```
 
 Do not commit these values to the repository.
+
+If you are using an SSH password, put it only in the GitHub secret named `DEPLOY_PASSWORD`.
 
 ## Deployment Flow
 
@@ -98,6 +105,21 @@ git push -u origin feature/add-new-report
 Then open a pull request. GitHub Actions tests the branch. After the pull request is merged into `main`, the production deploy workflow runs pre-deploy tests again, uploads the code, then refreshes Laravel on the server.
 
 Manual deploy is also available from the GitHub Actions tab, but run it from the `main` branch.
+
+## Actions Before Server Upload
+
+The deployment workflow is intentionally split into checks first, deploy second.
+
+If any of these fail, upload does not happen:
+
+- Composer validation
+- Composer install
+- Laravel environment preparation
+- route boot check
+- PHPUnit
+- frontend build
+
+Only after those pass does the workflow connect to the server, upload code, clear Laravel cache/config/views, run migrations, and restart queues.
 
 ## Common Failures
 

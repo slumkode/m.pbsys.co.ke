@@ -75,6 +75,8 @@ git push -u origin feature/add-new-report
 
 Open GitHub in the browser and create a pull request.
 
+The user manages the project by moving work through pull requests. Do not treat a pushed feature branch as production-ready until Actions pass and the branch is merged into `main`.
+
 ## When A Feature Branch Is Ahead Of Main
 
 That is normal. It means your branch has commits that `main` does not have yet.
@@ -101,6 +103,32 @@ git pull origin main
 ```
 
 Then start the next branch from the updated `main`.
+
+## Managing Pull Requests
+
+On GitHub, open:
+
+```text
+https://github.com/slumkode/m.pbsys.co.ke/pulls
+```
+
+For each pull request:
+
+- Read the changed files.
+- Check the GitHub Actions result.
+- Read the version suggestion comment.
+- Confirm there are no secret files.
+- Merge only when the PR is ready for `main`.
+
+After merging, delete the remote feature branch from GitHub if it is no longer needed.
+
+Locally, clean up old branches:
+
+```bash
+git checkout main
+git pull origin main
+git branch -d feature/add-new-report
+```
 
 ## Login With HTTPS
 

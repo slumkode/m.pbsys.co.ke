@@ -23,6 +23,9 @@ This project uses semantic versioning:
 - Added self-help documentation for Git, GitHub Actions, hooks, `.gitignore`, and releases.
 - Added a lightweight GitHub setup smoke test for CI.
 - Added a production deploy workflow that runs tests before upload and refreshes Laravel cache, config, views, migrations, and queues on the server.
+- Expanded self-help into a project-owner guide and server-operations guide.
+- Added a tracked systemd template for the M-Pesa C2B worker service.
+- Added password-based SSH deployment support through the `DEPLOY_PASSWORD` GitHub Actions secret.
 
 ### Bug Fixes
 

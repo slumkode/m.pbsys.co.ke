@@ -27,6 +27,8 @@ What it blocks:
 
 If the hook blocks a commit, read the file and line it prints. It hides the secret value on purpose.
 
+The hook runs before the code leaves your computer. GitHub Actions runs another guard after upload. Treat both as safety rails.
+
 ## Gitignore
 
 Important ignore rules live in:
@@ -51,6 +53,8 @@ The important ignored paths are:
 - `*.key`, `*.pem`, `*.p12`, `*.pfx`
 
 Small `.gitignore` keeper files under `storage/` are allowed so Laravel runtime folders exist after clone.
+
+Do not put reusable server files in `.vscode/` if they must be uploaded. `.vscode/` is ignored. Put reusable service files under `deploy/` or `scripts/`.
 
 ## Safe Staging Checklist
 
