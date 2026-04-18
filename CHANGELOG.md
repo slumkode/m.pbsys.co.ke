@@ -46,6 +46,7 @@ This project uses semantic versioning:
 ### Bug Fixes
 
 - Fixed the login remember-me checkbox so it uses Laravel's expected `remember` field and stays checked when the login page loads.
+- Clarified the version helper workflow so branch pushes show a version check instead of a confusing skipped suggestion job.
 
 ### Security
 

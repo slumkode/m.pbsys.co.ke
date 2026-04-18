@@ -11,7 +11,7 @@ on:
       - "**"
   push:
     branches:
-      - main
+      - "**"
 
 permissions:
   contents: write
@@ -23,36 +23,63 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  suggest-version:
-    name: Suggest next version
+  version-check:
+    name: Version check
     runs-on: ubuntu-24.04
-    if: github.event_name == 'pull_request'
 
     steps:
-      - name: Checkout pull request
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
 
-      - name: Calculate suggested version
+      - name: Calculate version state
         id: version
         shell: bash
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BRANCH: ${{ github.head_ref }}
           BASE_BRANCH: ${{ github.base_ref }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
 
-          current="$(tr -d '[:space:]' < VERSION)"
-          if [[ ! "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          working_version="$(tr -d '[:space:]' < VERSION)"
+          if [[ ! "$working_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::VERSION must use MAJOR.FEATURE.BUG format, for example 1.2.3."
             exit 1
           fi
 
-          git fetch origin "${BASE_BRANCH}" --depth=1
-          commit_subjects="$(git log --format=%s "origin/${BASE_BRANCH}..HEAD" || true)"
-          signal="$(printf '%s\n%s\n%s\n' "$PR_BRANCH" "$PR_TITLE" "$commit_subjects" | tr '[:upper:]' '[:lower:]')"
+          event_name="${GITHUB_EVENT_NAME}"
+          ref_name="${REF_NAME:-}"
+          base_branch="${BASE_BRANCH:-main}"
+          branch_name="${PR_BRANCH:-$ref_name}"
+          is_main_push="false"
+
+          if [ "$event_name" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            is_main_push="true"
+          fi
+
+          base_version="$working_version"
+          commit_subjects="$(git log --format=%s -1 || true)"
+
+          if [ "$is_main_push" != "true" ]; then
+            git fetch origin "${base_branch}" --depth=1
+
+            if git cat-file -e "origin/${base_branch}:VERSION" 2>/dev/null; then
+              base_version="$(git show "origin/${base_branch}:VERSION" | tr -d '[:space:]')"
+            fi
+
+            commit_subjects="$(git log --format=%s "origin/${base_branch}..HEAD" || true)"
+          fi
+
+          if [[ ! "$base_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Base VERSION must use MAJOR.FEATURE.BUG format, for example 1.2.3."
+            exit 1
+          fi
+
+          signal="$(printf '%s\n%s\n%s\n' "$branch_name" "${PR_TITLE:-}" "$commit_subjects" | tr '[:upper:]' '[:lower:]')"
 
           change_type="unknown"
           if echo "$signal" | grep -Eq '(^|[[:space:]/:_-])(major|breaking|breaking change)([[:space:]/:_-]|$)|!:'; then
@@ -65,63 +92,106 @@ jobs:
             change_type="none"
           fi
 
-          IFS=. read -r major feature bug <<< "$current"
+          IFS=. read -r major feature bug <<< "$base_version"
 
           case "$change_type" in
             major)
-              next="$((major + 1)).0.0"
+              suggested="$((major + 1)).0.0"
               label="Major"
               ;;
             feature)
-              next="${major}.$((feature + 1)).0"
+              suggested="${major}.$((feature + 1)).0"
               label="Feature"
               ;;
             bug)
-              next="${major}.${feature}.$((bug + 1))"
+              suggested="${major}.${feature}.$((bug + 1))"
               label="Bug fix"
               ;;
             none)
-              next="$current"
+              suggested="$base_version"
               label="No release bump"
               ;;
             *)
-              next=""
+              suggested=""
               label="Needs a change type"
               ;;
           esac
 
+          version_matches="false"
+          if [ -n "$suggested" ] && [ "$working_version" = "$suggested" ]; then
+            version_matches="true"
+          fi
+
+          tag="v${working_version}"
+          create_release="false"
+          if [ "$is_main_push" = "true" ]; then
+            git fetch --tags --force
+
+            if git rev-parse "${tag}" >/dev/null 2>&1; then
+              create_release="false"
+            else
+              create_release="true"
+            fi
+          fi
+
           {
-            echo "current=${current}"
+            echo "base_version=${base_version}"
+            echo "working_version=${working_version}"
             echo "change_type=${change_type}"
-            echo "next=${next}"
+            echo "suggested=${suggested}"
             echo "label=${label}"
+            echo "version_matches=${version_matches}"
+            echo "is_main_push=${is_main_push}"
+            echo "create_release=${create_release}"
+            echo "tag=${tag}"
           } >> "$GITHUB_OUTPUT"
 
           {
-            echo "### Version suggestion"
-            echo "Current version: ${current}"
-            echo "Detected change type: ${label}"
-            if [ -n "$next" ]; then
-              echo "Suggested next version: ${next}"
+            echo "### Version helper"
+            if [ "$is_main_push" = "true" ]; then
+              echo "Mode: release tagging from main"
+              echo "VERSION: ${working_version}"
+              if [ "$create_release" = "true" ]; then
+                echo "Release tag to create: ${tag}"
+              else
+                echo "Release tag already exists: ${tag}"
+              fi
             else
-              echo "Suggested next version: choose a branch, PR title, or commit prefix such as major, feature, or fix."
+              echo "Mode: version suggestion"
+              echo "Base version: ${base_version}"
+              echo "Branch VERSION: ${working_version}"
+              echo "Detected change type: ${label}"
+              if [ -n "$suggested" ]; then
+                echo "Suggested next version: ${suggested}"
+                if [ "$version_matches" = "true" ]; then
+                  echo "VERSION is already set correctly."
+                else
+                  echo "VERSION should be updated before merge."
+                fi
+              else
+                echo "Suggested next version: choose a branch, PR title, or commit prefix such as major, feature, or fix."
+              fi
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comment on pull request
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         env:
-          CURRENT_VERSION: ${{ steps.version.outputs.current }}
-          NEXT_VERSION: ${{ steps.version.outputs.next }}
+          BASE_VERSION: ${{ steps.version.outputs.base_version }}
+          WORKING_VERSION: ${{ steps.version.outputs.working_version }}
+          SUGGESTED_VERSION: ${{ steps.version.outputs.suggested }}
           CHANGE_TYPE: ${{ steps.version.outputs.change_type }}
           CHANGE_LABEL: ${{ steps.version.outputs.label }}
+          VERSION_MATCHES: ${{ steps.version.outputs.version_matches }}
         with:
           script: |
             const marker = '<!-- mpesa-mlp-version-suggestion -->';
-            const current = process.env.CURRENT_VERSION;
-            const next = process.env.NEXT_VERSION;
-            const changeType = process.env.CHANGE_TYPE;
+            const base = process.env.BASE_VERSION;
+            const working = process.env.WORKING_VERSION;
+            const suggested = process.env.SUGGESTED_VERSION;
             const label = process.env.CHANGE_LABEL;
+            const versionMatches = process.env.VERSION_MATCHES === 'true';
 
             const examples = [
               '`major/...` or `major:` for breaking changes',
@@ -129,22 +199,26 @@ jobs:
               '`bugfix/...`, `hotfix/...`, `fix:`, or `bug:` for bug-fix releases',
             ].join('\n- ');
 
-            const body = next
+            const body = suggested
               ? [
                   marker,
                   'Version check:',
                   '',
-                  `- Current version: \`${current}\``,
+                  `- Base version: \`${base}\``,
+                  `- Branch VERSION: \`${working}\``,
                   `- Detected change type: \`${label}\``,
-                  `- Suggested next version: \`${next}\``,
+                  `- Suggested next version: \`${suggested}\``,
                   '',
-                  'Before merge, update `VERSION` and move the matching notes in `CHANGELOG.md` if this PR is a release.',
+                  versionMatches
+                    ? '`VERSION` is already set to the suggested version.'
+                    : `Before merge, update \`VERSION\` to \`${suggested}\` and move the matching notes in \`CHANGELOG.md\`.`,
                 ].join('\n')
               : [
                   marker,
                   'Version check:',
                   '',
-                  `- Current version: \`${current}\``,
+                  `- Base version: \`${base}\``,
+                  `- Branch VERSION: \`${working}\``,
                   '- Detected change type: `Needs a change type`',
                   '',
                   'I could not safely guess the next version. Use one of these signals:',
@@ -177,45 +251,11 @@ jobs:
               });
             }
 
-  tag-release:
-    name: Tag release
-    runs-on: ubuntu-24.04
-    if: github.event_name == 'push'
-
-    steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Read version
-        id: version
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          version="$(tr -d '[:space:]' < VERSION)"
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::VERSION must use MAJOR.FEATURE.BUG format, for example 1.2.3."
-            exit 1
-          fi
-
-          tag="v${version}"
-          if git rev-parse "${tag}" >/dev/null 2>&1; then
-            echo "Tag ${tag} already exists."
-            echo "create_release=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "create_release=true" >> "$GITHUB_OUTPUT"
-          fi
-
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-
       - name: Create tag and GitHub release
-        if: steps.version.outputs.create_release == 'true'
+        if: steps.version.outputs.is_main_push == 'true' && steps.version.outputs.create_release == 'true'
         uses: actions/github-script@v7
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.version.outputs.working_version }}
           TAG: ${{ steps.version.outputs.tag }}
         with:
           script: |
@@ -255,10 +295,14 @@ jobs:
         shell: bash
         run: |
           {
-            echo "### Release tag"
-            if [ "${{ steps.version.outputs.create_release }}" = "true" ]; then
-              echo "Created ${{ steps.version.outputs.tag }} from VERSION."
+            echo "### Release result"
+            if [ "${{ steps.version.outputs.is_main_push }}" = "true" ]; then
+              if [ "${{ steps.version.outputs.create_release }}" = "true" ]; then
+                echo "Created ${{ steps.version.outputs.tag }} from VERSION."
+              else
+                echo "${{ steps.version.outputs.tag }} already exists, so no new release was created."
+              fi
             else
-              echo "${{ steps.version.outputs.tag }} already exists, so no new release was created."
+              echo "No release tag is created until this branch is merged into main."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
