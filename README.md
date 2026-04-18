@@ -17,6 +17,8 @@ For production setup, read [System Requirements](docs/system-requirements.md). I
 
 For releases, read [Versioning](docs/versioning.md). Versions follow `MAJOR.FEATURE.BUG`, with the current value in `VERSION`, release notes in `CHANGELOG.md`, PR version suggestions, and automatic tags/releases after merge to `main`.
 
+For day-to-day Git, GitHub Actions, hooks, `.gitignore`, and release help, read [Self Help](selfhelp/README.md).
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

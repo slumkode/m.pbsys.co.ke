@@ -20,6 +20,8 @@ This project uses semantic versioning:
 - Added GitHub Actions version suggestions for pull requests and automatic release tags from `VERSION` on `main`.
 - Added GitHub account setup documentation and a sanitized Apache/Laravel deployment script.
 - Expanded the local pre-commit scanner to catch `DB_PASS` and similar secret key names.
+- Added self-help documentation for Git, GitHub Actions, hooks, `.gitignore`, and releases.
+- Added a lightweight GitHub setup smoke test for CI.
 
 ### Bug Fixes
 
