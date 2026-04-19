@@ -144,4 +144,32 @@ class GitHubSetupTest extends TestCase
         $this->assertStringContainsString('account LIKE ?', $baseController);
         $this->assertStringNotContainsString('LOWER(account) LIKE ?', $baseController);
     }
+
+    public function testBrowserLocationUnavailableIsAudited()
+    {
+        $routes = file_get_contents($this->rootPath.'/routes/web.php');
+        $locationController = file_get_contents($this->rootPath.'/app/Http/Controllers/UserLocationController.php');
+        $loginLogger = file_get_contents($this->rootPath.'/app/Services/UserLoginActivityLogger.php');
+        $adminJs = file_get_contents($this->rootPath.'/resources/views/admin/includes/js.blade.php');
+
+        $this->assertStringContainsString("user-location.unavailable", $routes);
+        $this->assertStringContainsString('recordBrowserLocationUnavailable', $locationController);
+        $this->assertStringContainsString('location_unavailable', $loginLogger);
+        $this->assertStringContainsString('permission_denied', $adminJs);
+        $this->assertStringContainsString('position_unavailable', $adminJs);
+        $this->assertStringContainsString('timeout', $adminJs);
+    }
+
+    public function testIpLocationFallbackIsConfigurable()
+    {
+        $this->assertFileExists($this->rootPath.'/app/Services/IpLocationResolver.php');
+
+        $servicesConfig = file_get_contents($this->rootPath.'/config/services.php');
+        $envExample = file_get_contents($this->rootPath.'/.env.example');
+        $loginLogger = file_get_contents($this->rootPath.'/app/Services/UserLoginActivityLogger.php');
+
+        $this->assertStringContainsString('IP_LOCATION_ENDPOINT', $servicesConfig);
+        $this->assertStringContainsString('IP_LOCATION_ENDPOINT=', $envExample);
+        $this->assertStringContainsString('approximate_ip_location', $loginLogger);
+    }
 }

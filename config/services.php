@@ -30,4 +30,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'ip_location' => [
+        'endpoint' => env('IP_LOCATION_ENDPOINT'),
+        'token' => env('IP_LOCATION_TOKEN'),
+        'timeout' => env('IP_LOCATION_TIMEOUT', 2),
+    ],
+
 ];

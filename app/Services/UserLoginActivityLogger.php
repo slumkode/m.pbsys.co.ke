@@ -13,6 +13,13 @@ class UserLoginActivityLogger
     const SESSION_KEY = 'auth.login_activity_id';
     const LAST_URL_KEY = 'auth.last_url';
 
+    protected $ipLocationResolver;
+
+    public function __construct(IpLocationResolver $ipLocationResolver)
+    {
+        $this->ipLocationResolver = $ipLocationResolver;
+    }
+
     public function recordLogin(Request $request, User $user, $remembered = false)
     {
         if (! $this->activityTableReady()) {
@@ -193,6 +200,38 @@ class UserLoginActivityLogger
         return $activity;
     }
 
+    public function recordBrowserLocationUnavailable(Request $request, User $user, $reason = 'unknown', $message = null, $code = null)
+    {
+        $activity = $this->ensureActivity($request, $user);
+
+        if (! $activity) {
+            return null;
+        }
+
+        $activity->last_seen_at = now();
+        $activity->save();
+
+        if ($this->recentLocationUnavailableAuditExists($activity)) {
+            return $activity;
+        }
+
+        $payload = [
+            'status' => 'not_recorded',
+            'source' => 'browser_geolocation',
+            'reason' => $this->normalizeLocationUnavailableReason($reason),
+            'message' => $this->cleanLocationMessage($message),
+            'browser_error_code' => $code !== null && $code !== '' ? (int) $code : null,
+            'ip_address' => $request->ip(),
+            'approximate_ip_location' => $this->ipLocationResolver->resolve($request->ip()),
+        ];
+
+        $this->writeAudit($request, $user, 'location_unavailable', [], array_filter($payload, function ($value) {
+            return $value !== null && $value !== '';
+        }), $activity);
+
+        return $activity;
+    }
+
     public function preferredRedirectUrl(User $user, Request $request, $fallback = '/')
     {
         $sessionUrl = $request->hasSession() ? $request->session()->get(self::LAST_URL_KEY) : null;
@@ -262,6 +301,41 @@ class UserLoginActivityLogger
                 'ip_address' => $currentIp,
             ], $activity);
         }
+    }
+
+    protected function recentLocationUnavailableAuditExists(UserLoginActivity $activity)
+    {
+        if (! $activity->id || ! Schema::hasTable('audit_logs')) {
+            return false;
+        }
+
+        return AuditLog::where('action', 'location_unavailable')
+            ->where('auditable_type', 'Login Activity')
+            ->where('auditable_id', $activity->id)
+            ->where('created_at', '>=', now()->subHours(24))
+            ->exists();
+    }
+
+    protected function normalizeLocationUnavailableReason($reason)
+    {
+        $reason = strtolower(trim((string) $reason));
+        $allowed = [
+            'permission_denied',
+            'position_unavailable',
+            'timeout',
+            'unsupported',
+            'insecure_context',
+            'unknown',
+        ];
+
+        return in_array($reason, $allowed, true) ? $reason : 'unknown';
+    }
+
+    protected function cleanLocationMessage($message)
+    {
+        $message = trim((string) $message);
+
+        return $message !== '' ? substr($message, 0, 255) : null;
     }
 
     protected function writeAudit(Request $request, User $user, $action, array $oldValues, array $newValues, UserLoginActivity $activity = null)

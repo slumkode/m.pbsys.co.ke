@@ -31,17 +31,105 @@
         }
 
         function rememberBrowserLocation() {
-            if (!navigator.geolocation || !window.localStorage) {
-                return;
-            }
-
             var storageKey = 'mpbsys:last-location-check';
+            var unavailableStorageKey = 'mpbsys:last-location-unavailable';
             var now = Date.now();
             var lastCheck = 0;
 
+            function readStoredValue(key) {
+                try {
+                    if (window.localStorage) {
+                        return localStorage.getItem(key);
+                    }
+                } catch (e) {}
+
+                try {
+                    if (window.sessionStorage) {
+                        return sessionStorage.getItem(key);
+                    }
+                } catch (e) {}
+
+                return null;
+            }
+
+            function writeStoredValue(key, value) {
+                try {
+                    if (window.localStorage) {
+                        localStorage.setItem(key, value);
+                        return true;
+                    }
+                } catch (e) {}
+
+                try {
+                    if (window.sessionStorage) {
+                        sessionStorage.setItem(key, value);
+                        return true;
+                    }
+                } catch (e) {}
+
+                return false;
+            }
+
+            function reportLocationUnavailable(reason, message, code) {
+                var lastUnavailable = parseInt(readStoredValue(unavailableStorageKey) || '0', 10);
+
+                if (lastUnavailable && now - lastUnavailable < (24 * 60 * 60 * 1000)) {
+                    return;
+                }
+
+                writeStoredValue(unavailableStorageKey, String(now));
+
+                $.ajax({
+                    type: 'POST',
+                    url: '{{ route('user-location.unavailable') }}',
+                    headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                    data: {
+                        reason: reason || 'unknown',
+                        message: message || '',
+                        code: code || ''
+                    }
+                });
+            }
+
+            function locationFailureDetails(error) {
+                if (!error) {
+                    return { reason: 'unknown', message: 'Browser location was not available.', code: '' };
+                }
+
+                if (error.code === 1) {
+                    return { reason: 'permission_denied', message: error.message || 'The user or browser denied location permission.', code: error.code };
+                }
+
+                if (error.code === 2) {
+                    return { reason: 'position_unavailable', message: error.message || 'The browser could not determine the current position.', code: error.code };
+                }
+
+                if (error.code === 3) {
+                    return { reason: 'timeout', message: error.message || 'The browser location request timed out.', code: error.code };
+                }
+
+                return { reason: 'unknown', message: error.message || 'Browser location was not available.', code: error.code || '' };
+            }
+
+            if (!navigator.geolocation) {
+                reportLocationUnavailable(
+                    window.isSecureContext === false ? 'insecure_context' : 'unsupported',
+                    window.isSecureContext === false
+                        ? 'Browser geolocation requires HTTPS or localhost.'
+                        : 'This browser does not support geolocation.',
+                    ''
+                );
+                return;
+            }
+
             try {
-                lastCheck = parseInt(localStorage.getItem(storageKey) || '0', 10);
+                lastCheck = parseInt(readStoredValue(storageKey) || '0', 10);
             } catch (e) {
+                return;
+            }
+
+            if (lastCheck && lastCheck > now) {
+                reportLocationUnavailable('unknown', 'Browser location was previously blocked or delayed.', '');
                 return;
             }
 
@@ -50,7 +138,7 @@
             }
 
             try {
-                localStorage.setItem(storageKey, String(now));
+                writeStoredValue(storageKey, String(now));
             } catch (e) {
                 return;
             }
@@ -66,9 +154,13 @@
                         accuracy: position.coords.accuracy
                     }
                 });
-            }, function () {
+            }, function (error) {
+                var failure = locationFailureDetails(error);
+
+                reportLocationUnavailable(failure.reason, failure.message, failure.code);
+
                 try {
-                    localStorage.setItem(storageKey, String(Date.now() + (24 * 60 * 60 * 1000)));
+                    writeStoredValue(storageKey, String(Date.now() + (24 * 60 * 60 * 1000)));
                 } catch (e) {}
             }, {
                 enableHighAccuracy: false,

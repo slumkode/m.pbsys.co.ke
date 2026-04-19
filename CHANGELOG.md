@@ -26,6 +26,12 @@ This project uses semantic versioning:
 
 - Nothing yet.
 
+## [1.3.1] - 2026-04-19
+
+### Bug Fixes
+
+- Added audit logging when browser location is blocked or unavailable, with a configurable approximate IP-location fallback for no-prompt location context.
+
 ## [1.3.0] - 2026-04-19
 
 ### Features

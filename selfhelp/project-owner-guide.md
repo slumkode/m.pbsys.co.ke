@@ -96,7 +96,8 @@ Before merging into `main`, confirm:
 The app records login activity with free, built-in tools:
 
 - Laravel auth/session events record login, logout, remembered sessions, IP changes, and last page visited.
-- Browser location uses the standard browser geolocation permission prompt. Nothing is stored unless the browser/user allows it.
+- Browser location uses the standard browser geolocation permission prompt. Precise latitude/longitude is only stored when the browser/user allows it.
+- If browser location is blocked or unavailable, the app writes a `Location Unavailable` audit entry. If `IP_LOCATION_ENDPOINT` is configured, the entry can include approximate IP-based location from that endpoint.
 - No paid tracking service is required.
 
 Review the data here:
@@ -107,7 +108,7 @@ Audit Logs > View Changes
 
 For authentication events, the details panel shows the linked login session, IP address, browser, platform, device type, last page, and browser location if it was permitted.
 
-If a user changes IP address during a session, the app writes an `Ip Changed` audit entry. If the browser reports a different location, the app writes `Location Recorded` or `Location Changed`.
+If a user changes IP address during a session, the app writes an `Ip Changed` audit entry. If the browser reports a different location, the app writes `Location Recorded` or `Location Changed`. If the browser blocks location, the app writes `Location Unavailable` and records the reason reported by the browser.
 
 ## GitHub Token
 

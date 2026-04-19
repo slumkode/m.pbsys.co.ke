@@ -36,4 +36,26 @@ class UserLocationController extends Controller
             'activity_id' => $activity ? $activity->id : null,
         ]);
     }
+
+    public function unavailable(Request $request)
+    {
+        $this->validate($request, [
+            'reason' => 'required|in:permission_denied,position_unavailable,timeout,unsupported,insecure_context,unknown',
+            'message' => 'nullable|string|max:255',
+            'code' => 'nullable|integer',
+        ]);
+
+        $activity = $this->logger->recordBrowserLocationUnavailable(
+            $request,
+            $request->user(),
+            $request->input('reason'),
+            $request->input('message'),
+            $request->input('code')
+        );
+
+        return response()->json([
+            'status' => true,
+            'activity_id' => $activity ? $activity->id : null,
+        ]);
+    }
 }
