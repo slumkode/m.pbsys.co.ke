@@ -220,6 +220,41 @@ jobs:
             chmod -R ug+rwX storage bootstrap/cache
           }
 
+          run_service_command() {
+            if [ "$(id -u)" -eq 0 ]; then
+              "$@"
+              return $?
+            fi
+
+            if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+              sudo "$@"
+              return $?
+            fi
+
+            return 127
+          }
+
+          reload_web_runtime() {
+            if ! command -v systemctl >/dev/null 2>&1; then
+              echo "systemctl is unavailable; skipping web runtime reload."
+              return
+            fi
+
+            if [ "$(id -u)" -ne 0 ] && { ! command -v sudo >/dev/null 2>&1 || ! sudo -n true 2>/dev/null; }; then
+              echo "No passwordless sudo available; skipping web runtime reload."
+              return
+            fi
+
+            for service in php8.3-fpm php8.2-fpm php8.1-fpm php8.0-fpm php7.4-fpm apache2 httpd; do
+              if run_service_command systemctl is-active --quiet "$service"; then
+                run_service_command systemctl reload "$service" \
+                  || run_service_command systemctl restart "$service" \
+                  || true
+                echo "Reloaded ${service}."
+              fi
+            done
+          }
+
           fix_laravel_permissions
 
           if [ -f composer.phar ]; then
@@ -238,6 +273,7 @@ jobs:
           php artisan config:cache
           php artisan view:cache || true
           php artisan queue:restart || true
+          reload_web_runtime
           fix_laravel_permissions
           REMOTE
 
@@ -248,5 +284,5 @@ jobs:
             echo "### Production deploy"
             echo "Pre-deploy checks passed before upload."
             echo "Files were synced to the server."
-            echo "Laravel dependencies, migrations, cache clears, config cache, view cache, and queue restart were run."
+            echo "Laravel dependencies, migrations, cache clears, config cache, view cache, queue restart, and web runtime reload were run."
           } >> "$GITHUB_STEP_SUMMARY"

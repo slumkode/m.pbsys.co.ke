@@ -26,6 +26,12 @@ This project uses semantic versioning:
 
 - Nothing yet.
 
+## [1.1.2] - 2026-04-19
+
+### Bug Fixes
+
+- Reloaded the web runtime during production deployments so freshly uploaded Laravel views and PHP code are served immediately.
+
 ## [1.1.1] - 2026-04-19
 
 ### Bug Fixes

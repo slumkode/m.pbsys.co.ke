@@ -94,4 +94,12 @@ class GitHubSetupTest extends TestCase
     {
         $this->assertFileExists($this->rootPath.'/database/migrations/2026_04_19_000000_remove_documentation_permission.php');
     }
+
+    public function testProductionDeployReloadsWebRuntime()
+    {
+        $workflow = file_get_contents($this->rootPath.'/.github/workflows/deploy-production.yml');
+
+        $this->assertStringContainsString('reload_web_runtime', $workflow);
+        $this->assertStringContainsString('systemctl reload', $workflow);
+    }
 }
