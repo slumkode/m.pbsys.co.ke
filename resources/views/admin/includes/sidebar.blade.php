@@ -1,7 +1,7 @@
 <nav class="sidebar sidebar-sticky">
     <div class="sidebar-content  js-simplebar">
         <a class="sidebar-brand px-4" href="{{ url('dashboard') }}">
-            <img class="img-fluid" src="{{ asset('assets/img/taifa.jpg') }}" alt="mpesa">
+            <span class="align-middle font-weight-bold">Talash Enterprises</span>
         </a>
 
         @php($currentUser = Auth::user())

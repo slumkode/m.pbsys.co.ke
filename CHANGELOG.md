@@ -31,6 +31,7 @@ This project uses semantic versioning:
 ### Bug Fixes
 
 - Hid the API Documentation URL from the admin sidebar navigation and removed the documentation permission from the access catalog.
+- Replaced the sidebar logo image with the Talash Enterprises text brand.
 
 ## [1.1.0] - 2026-04-18
 

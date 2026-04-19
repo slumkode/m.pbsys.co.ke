@@ -69,6 +69,15 @@ class GitHubSetupTest extends TestCase
         $this->assertStringNotContainsString('API Documentation', $sidebarView);
     }
 
+    public function testSidebarUsesTextBrandInsteadOfLogoImage()
+    {
+        $sidebarView = file_get_contents($this->rootPath.'/resources/views/admin/includes/sidebar.blade.php');
+
+        $this->assertStringContainsString('Talash Enterprises', $sidebarView);
+        $this->assertStringNotContainsString('assets/img/taifa.jpg', $sidebarView);
+        $this->assertStringNotContainsString('<img', $sidebarView);
+    }
+
     public function testDocumentationPermissionIsNotRegistered()
     {
         $userModel = file_get_contents($this->rootPath.'/app/User.php');
