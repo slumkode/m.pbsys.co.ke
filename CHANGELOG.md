@@ -26,6 +26,12 @@ This project uses semantic versioning:
 
 - Nothing yet.
 
+## [1.2.0] - 2026-04-19
+
+### Features
+
+- Added a keyword dropdown filter to Transaction Reports with keyword-shortcode labels and matching transaction drill-down links.
+
 ## [1.1.2] - 2026-04-19
 
 ### Bug Fixes

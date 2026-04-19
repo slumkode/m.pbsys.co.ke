@@ -102,4 +102,16 @@ class GitHubSetupTest extends TestCase
         $this->assertStringContainsString('reload_web_runtime', $workflow);
         $this->assertStringContainsString('systemctl reload', $workflow);
     }
+
+    public function testTransactionReportsIncludeKeywordFilter()
+    {
+        $reportView = file_get_contents($this->rootPath.'/resources/views/admin/modules/transaction-reports.blade.php');
+        $reportController = file_get_contents($this->rootPath.'/app/Http/Controllers/TransactionReportController.php');
+
+        $this->assertStringContainsString('report-keyword-id', $reportView);
+        $this->assertStringContainsString('keywordOptions', $reportController);
+        $this->assertStringContainsString("d.keyword_id = $('#report-keyword-id').val();", $reportView);
+        $this->assertStringContainsString('$this->transactionKeywordRuleForUser($authUser, $keywordId)', $reportController);
+        $this->assertStringContainsString('$this->applyAccountKeywordTransactionRule($query, $keywordRule);', $reportController);
+    }
 }

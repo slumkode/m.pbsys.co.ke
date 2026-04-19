@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Service;
+use App\Models\ServiceAccountKeyword;
 use App\Models\Shortcode;
 use App\Models\Transaction;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class TransactionReportController extends Controller
 {
@@ -28,6 +30,7 @@ class TransactionReportController extends Controller
             'defaultDateTo' => $defaultEnd,
             'shortcodeOptions' => $this->reportShortcodeOptions($authUser),
             'serviceOptions' => $this->reportServiceOptions($authUser),
+            'keywordOptions' => $this->reportKeywordOptions($authUser),
         ]));
     }
 
@@ -68,11 +71,21 @@ class TransactionReportController extends Controller
             ->get();
 
         $data = [];
+        $keywordId = (int) $request->input('keyword_id');
 
         foreach ($reports as $report) {
             $day = Carbon::parse($report->report_day);
+            $detailQuery = [
+                'start' => $day->copy()->startOfDay()->format('Y-m-d H:i:s'),
+                'end' => $day->copy()->endOfDay()->format('Y-m-d H:i:s'),
+            ];
+
+            if ($keywordId > 0) {
+                $detailQuery['keyword'] = $keywordId;
+            }
+
             $details = $authUser->hasPermission('transaction.view')
-                ? '<a class="btn btn-default btn-sm" href="'.url('/transaction').'?start='.urlencode($day->copy()->startOfDay()->format('Y-m-d H:i:s')).'&end='.urlencode($day->copy()->endOfDay()->format('Y-m-d H:i:s')).'">View Transactions</a>'
+                ? '<a class="btn btn-default btn-sm" href="'.url('/transaction').'?'.http_build_query($detailQuery).'">View Transactions</a>'
                 : '<span class="text-muted">No action</span>';
 
             $data[] = [
@@ -101,6 +114,7 @@ class TransactionReportController extends Controller
         );
         $shortcodeId = (int) $request->input('shortcode_id');
         $serviceKey = trim((string) $request->input('service_key'));
+        $keywordId = (int) $request->input('keyword_id');
         $account = trim((string) $request->input('account'));
         $transactionCode = trim((string) $request->input('transaction_code'));
         $customer = trim((string) $request->input('customer'));
@@ -124,6 +138,14 @@ class TransactionReportController extends Controller
                 $query->where('shortcode_id', (int) $parts[0])
                     ->where('type', $parts[1]);
             }
+        }
+
+        if ($keywordId > 0) {
+            $keywordRule = $this->transactionKeywordRuleForUser($authUser, $keywordId);
+
+            abort_if(! $keywordRule, 403, 'You do not have permission to view reports for this keyword.');
+
+            $this->applyAccountKeywordTransactionRule($query, $keywordRule);
         }
 
         if ($account !== '' || $transactionCode !== '' || $customer !== '') {
@@ -211,5 +233,39 @@ class TransactionReportController extends Controller
             ->whereIn('id', $serviceIds)
             ->orderBy('service_name')
             ->get();
+    }
+
+    protected function reportKeywordOptions(User $authUser)
+    {
+        if (! User::supportsAccountKeywordAccess()) {
+            return collect();
+        }
+
+        $query = ServiceAccountKeyword::with('service.shortcode')
+            ->where('status', 1)
+            ->whereHas('service', function ($serviceQuery) {
+                if (Schema::hasColumn('services', 'deleted_at')) {
+                    $serviceQuery->whereNull('deleted_at');
+                }
+            });
+
+        if (! $authUser->canViewAllTransactions()) {
+            $keywordIds = collect($authUser->transactionVisibleKeywordRules())
+                ->pluck('keyword_id')
+                ->map(function ($keywordId) {
+                    return (int) $keywordId;
+                })
+                ->unique()
+                ->values()
+                ->all();
+
+            if (empty($keywordIds)) {
+                return collect();
+            }
+
+            $query->whereIn('id', $keywordIds);
+        }
+
+        return $query->orderBy('keyword_name')->get();
     }
 }

@@ -18,13 +18,13 @@
     <div class="card">
         <div class="card-header">
             <div class="form-row">
-                <div class="col-md-4 mb-3">
+                <div class="col-md-3 mb-3">
                     <label for="report-date-range" class="control-label">When</label>
                     <input type="text" id="report-date-range" class="form-control" autocomplete="off">
                     <input type="hidden" id="report-date-from" value="{{ $defaultDateFrom->format('Y-m-d H:i:s') }}">
                     <input type="hidden" id="report-date-to" value="{{ $defaultDateTo->format('Y-m-d H:i:s') }}">
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col-md-3 mb-3">
                     <label for="report-shortcode-id" class="control-label">Shortcode</label>
                     <select id="report-shortcode-id" class="custom-select">
                         <option value="">All visible shortcodes</option>
@@ -33,12 +33,21 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col-md-3 mb-3">
                     <label for="report-service-key" class="control-label">Service</label>
                     <select id="report-service-key" class="custom-select">
                         <option value="">All visible services</option>
                         @foreach($serviceOptions as $service)
                             <option value="{{ $service->shortcode_id }}|{{ $service->service_name }}">{{ $service->service_name }} - {{ optional($service->shortcode)->shortcode ?: 'No shortcode' }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="report-keyword-id" class="control-label">Keyword</label>
+                    <select id="report-keyword-id" class="custom-select">
+                        <option value="">All visible keywords</option>
+                        @foreach($keywordOptions as $keyword)
+                            <option value="{{ $keyword->id }}">{{ $keyword->keyword_name }} - {{ optional(optional($keyword->service)->shortcode)->shortcode ?: 'No shortcode' }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -115,6 +124,7 @@
                         d.date_to = $('#report-date-to').val();
                         d.shortcode_id = $('#report-shortcode-id').val();
                         d.service_key = $('#report-service-key').val();
+                        d.keyword_id = $('#report-keyword-id').val();
                         d.account = $('#report-account-search').val();
                         d.transaction_code = $('#report-code-search').val();
                         d.customer = $('#report-customer-search').val();
@@ -180,12 +190,13 @@
                 reloadReports();
             });
 
-            $('#report-shortcode-id, #report-service-key').on('change', reloadReports);
+            $('#report-shortcode-id, #report-service-key, #report-keyword-id').on('change', reloadReports);
             $('#report-account-search, #report-code-search, #report-customer-search').on('keyup change', queueReload);
 
             $('#reset-report-filters').on('click', function () {
                 $('#report-shortcode-id').val('');
                 $('#report-service-key').val('');
+                $('#report-keyword-id').val('');
                 $('#report-account-search').val('');
                 $('#report-code-search').val('');
                 $('#report-customer-search').val('');
