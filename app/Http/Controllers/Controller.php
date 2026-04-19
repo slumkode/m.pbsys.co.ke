@@ -366,13 +366,13 @@ class Controller extends BaseController
                     $token = strtolower($token);
 
                     if ($matchType === 'starts_with') {
-                        $accountQuery->{$method}('LOWER(account) LIKE ?', [$token.'%']);
+                        $accountQuery->{$method}('account LIKE ?', [$token.'%']);
                     } elseif ($matchType === 'ends_with') {
-                        $accountQuery->{$method}('LOWER(account) LIKE ?', ['%'.$token]);
+                        $accountQuery->{$method}('account LIKE ?', ['%'.$token]);
                     } elseif ($matchType === 'exact') {
-                        $accountQuery->{$method}('LOWER(account) = ?', [$token]);
+                        $accountQuery->{$method}('account = ?', [$token]);
                     } else {
-                        $accountQuery->{$method}('LOWER(account) LIKE ?', ['%'.$token.'%']);
+                        $accountQuery->{$method}('account LIKE ?', ['%'.$token.'%']);
                     }
 
                     $hasRule = true;

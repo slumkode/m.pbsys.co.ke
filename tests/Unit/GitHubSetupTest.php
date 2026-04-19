@@ -114,4 +114,34 @@ class GitHubSetupTest extends TestCase
         $this->assertStringContainsString('$this->transactionKeywordRuleForUser($authUser, $keywordId)', $reportController);
         $this->assertStringContainsString('$this->applyAccountKeywordTransactionRule($query, $keywordRule);', $reportController);
     }
+
+    public function testReportingPerformanceIndexesExist()
+    {
+        $this->assertFileExists($this->rootPath.'/database/migrations/2026_04_19_001000_add_transaction_reporting_indexes.php');
+
+        $migration = file_get_contents($this->rootPath.'/database/migrations/2026_04_19_001000_add_transaction_reporting_indexes.php');
+
+        $this->assertStringContainsString('transactions_time_reporting_index', $migration);
+        $this->assertStringContainsString('transactions_service_time_reporting_index', $migration);
+        $this->assertStringContainsString('transactions_time_service_reporting_index', $migration);
+        $this->assertStringContainsString('transactions_account_reporting_index', $migration);
+    }
+
+    public function testDashboardReportCardsUseAggregateHelpers()
+    {
+        $paymentsController = file_get_contents($this->rootPath.'/app/Http/Controllers/Payments.php');
+
+        $this->assertStringContainsString('dashboardSummaryStats', $paymentsController);
+        $this->assertStringContainsString('dashboardServiceReportStats', $paymentsController);
+        $this->assertStringContainsString('dashboardKeywordReportStats', $paymentsController);
+        $this->assertStringContainsString('groupBy(\'shortcode_id\', \'type\')', $paymentsController);
+    }
+
+    public function testKeywordAccountMatchingCanUseAccountIndex()
+    {
+        $baseController = file_get_contents($this->rootPath.'/app/Http/Controllers/Controller.php');
+
+        $this->assertStringContainsString('account LIKE ?', $baseController);
+        $this->assertStringNotContainsString('LOWER(account) LIKE ?', $baseController);
+    }
 }

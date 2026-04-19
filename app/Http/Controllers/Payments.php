@@ -605,15 +605,12 @@ class Payments extends Controller
 
                 $report = [];
                 $keywordReport = [];
-                $summaryQuery = Transaction::query()
-                    ->where("trans_time", '>=', $startDate->format('Y-m-d H:i:s'))
-                    ->where("trans_time", '<=', $endDate->format('Y-m-d H:i:s'));
-
-                $this->applyTransactionVisibility($authUser, $summaryQuery);
+                $summaryStats = $this->dashboardSummaryStats($authUser, $startDate, $endDate);
+                $serviceReportStats = $this->dashboardServiceReportStats($authUser, $cardServices, $startDate, $endDate);
 
                 $dashboardSummary = [
-                    'total_amount' => (float) (clone $summaryQuery)->sum("amount"),
-                    'transaction_count' => (int) (clone $summaryQuery)->count(),
+                    'total_amount' => $summaryStats['amount'],
+                    'transaction_count' => $summaryStats['count'],
                     'service_count' => count(array_unique($scopeServiceKeys)),
                     'shortcode_count' => count(array_unique($scopeShortcodeIds)),
                 ];
@@ -621,30 +618,22 @@ class Payments extends Controller
                 foreach ($cardServices as $value)
                     {
                         $reportKey = $value->id;
-                        $query = Transaction::where("type", $value->service_name)
-                            ->where('shortcode_id', $value->shortcode_id)
-                            ->where("trans_time", '>=', $startDate->format('Y-m-d H:i:s'))
-                            ->where("trans_time", '<=', $endDate->format('Y-m-d H:i:s'));
-
-                        $this->applyTransactionVisibility($authUser, $query);
-
-                        $amount = (float) (clone $query)->sum("amount");
-                        $count = (int) (clone $query)->count();
+                        $stats = $serviceReportStats[$this->dashboardServiceReportKey($value->shortcode_id, $value->service_name)] ?? [
+                            'amount' => 0,
+                            'count' => 0,
+                            'latest' => null,
+                        ];
 
                         $report[$reportKey] = [
-                            'amount' => $amount,
-                            'count' => $count,
-                            'latest' => (clone $query)->max('trans_time'),
+                            'amount' => $stats['amount'],
+                            'count' => $stats['count'],
+                            'latest' => $stats['latest'],
                         ];
                     }
 
                 foreach ($cardKeywordRules as $rule)
                     {
-                        $query = Transaction::query()
-                            ->where("trans_time", '>=', $startDate->format('Y-m-d H:i:s'))
-                            ->where("trans_time", '<=', $endDate->format('Y-m-d H:i:s'));
-
-                        $this->applyAccountKeywordTransactionRule($query, $rule);
+                        $stats = $this->dashboardKeywordReportStats($rule, $startDate, $endDate);
 
                         $keywordReport[] = [
                             'keyword_id' => $rule['keyword_id'],
@@ -653,9 +642,9 @@ class Payments extends Controller
                             'assigned_users' => $rule['assigned_users'] ?? $authUser->name,
                             'service_owner' => $rule['service_owner'] ?? '',
                             'shortcode_id' => $rule['shortcode_id'],
-                            'amount' => (float) (clone $query)->sum("amount"),
-                            'count' => (int) (clone $query)->count(),
-                            'latest' => (clone $query)->max('trans_time'),
+                            'amount' => $stats['amount'],
+                            'count' => $stats['count'],
+                            'latest' => $stats['latest'],
                         ];
                     }
 
@@ -669,6 +658,82 @@ class Payments extends Controller
                     'reportStart' => $startDate,
                     'reportEnd' => $endDate,
                 ]);
+            }
+
+        protected function dashboardSummaryStats(User $authUser, Carbon $startDate, Carbon $endDate)
+            {
+                $query = Transaction::query()
+                    ->where("trans_time", '>=', $startDate->format('Y-m-d H:i:s'))
+                    ->where("trans_time", '<=', $endDate->format('Y-m-d H:i:s'));
+
+                $this->applyTransactionVisibility($authUser, $query);
+
+                $stats = $query
+                    ->selectRaw('COALESCE(SUM(amount), 0) as total_amount')
+                    ->selectRaw('COUNT(*) as transaction_count')
+                    ->first();
+
+                return [
+                    'amount' => $stats ? (float) $stats->total_amount : 0,
+                    'count' => $stats ? (int) $stats->transaction_count : 0,
+                ];
+            }
+
+        protected function dashboardServiceReportStats(User $authUser, $cardServices, Carbon $startDate, Carbon $endDate)
+            {
+                if ($cardServices->isEmpty()) {
+                    return [];
+                }
+
+                $query = Transaction::query()
+                    ->where("trans_time", '>=', $startDate->format('Y-m-d H:i:s'))
+                    ->where("trans_time", '<=', $endDate->format('Y-m-d H:i:s'));
+
+                $this->applyTransactionVisibility($authUser, $query);
+
+                return $query
+                    ->select('shortcode_id', 'type')
+                    ->selectRaw('COALESCE(SUM(amount), 0) as total_amount')
+                    ->selectRaw('COUNT(*) as transaction_count')
+                    ->selectRaw('MAX(trans_time) as latest_trans_time')
+                    ->groupBy('shortcode_id', 'type')
+                    ->get()
+                    ->mapWithKeys(function ($stats) {
+                        return [
+                            $this->dashboardServiceReportKey($stats->shortcode_id, $stats->type) => [
+                                'amount' => (float) $stats->total_amount,
+                                'count' => (int) $stats->transaction_count,
+                                'latest' => $stats->latest_trans_time,
+                            ],
+                        ];
+                    })
+                    ->all();
+            }
+
+        protected function dashboardKeywordReportStats(array $rule, Carbon $startDate, Carbon $endDate)
+            {
+                $query = Transaction::query()
+                    ->where("trans_time", '>=', $startDate->format('Y-m-d H:i:s'))
+                    ->where("trans_time", '<=', $endDate->format('Y-m-d H:i:s'));
+
+                $this->applyAccountKeywordTransactionRule($query, $rule);
+
+                $stats = $query
+                    ->selectRaw('COALESCE(SUM(amount), 0) as total_amount')
+                    ->selectRaw('COUNT(*) as transaction_count')
+                    ->selectRaw('MAX(trans_time) as latest_trans_time')
+                    ->first();
+
+                return [
+                    'amount' => $stats ? (float) $stats->total_amount : 0,
+                    'count' => $stats ? (int) $stats->transaction_count : 0,
+                    'latest' => $stats ? $stats->latest_trans_time : null,
+                ];
+            }
+
+        protected function dashboardServiceReportKey($shortcodeId, $serviceName)
+            {
+                return (int) $shortcodeId.'|'.(string) $serviceName;
             }
 
         protected function dashboardReportCardServices(User $authUser, $services)

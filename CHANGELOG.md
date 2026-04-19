@@ -26,6 +26,12 @@ This project uses semantic versioning:
 
 - Nothing yet.
 
+## [1.3.0] - 2026-04-19
+
+### Features
+
+- Added transaction reporting indexes, collapsed dashboard card aggregates, and made non-regex keyword account matching more index-friendly to reduce repeated scans on large transaction tables.
+
 ## [1.2.0] - 2026-04-19
 
 ### Features
