@@ -48,16 +48,6 @@ class User extends Authenticatable
                 ],
             ],
         ],
-        'documentation' => [
-            'label' => 'API Documentation',
-            'description' => 'MPesa API guide and sandbox.',
-            'actions' => [
-                'view' => [
-                    'label' => 'View',
-                    'description' => 'Open the MPesa API documentation and sandbox page.',
-                ],
-            ],
-        ],
         'shortcode' => [
             'label' => 'Shortcode',
             'description' => 'Shortcode configuration and notification setup.',
@@ -1286,7 +1276,6 @@ class User extends Authenticatable
             'audit_logs.view' => 'audit_logs',
             'audit_logs.view_all' => 'audit_logs',
             'audit_logs.restore' => 'audit_logs',
-            'documentation.view' => 'dashboard',
             'transaction_reports.view' => 'transaction',
             'transaction.download' => 'transaction',
         ];

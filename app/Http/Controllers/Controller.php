@@ -165,7 +165,6 @@ class Controller extends BaseController
     {
         $paths = [
             'dashboard' => '/dashboard',
-            'documentation' => '/documentation',
             'shortcode' => '/shortcode',
             'services' => '/services',
             'transaction' => '/transaction',

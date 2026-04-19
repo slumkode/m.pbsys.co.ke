@@ -64,7 +64,6 @@ class AddInternalVisibilityPermissions extends Migration
         $permissionIds = DB::table('permissions')
             ->whereIn('slug', [
                 'dashboard.view',
-                'documentation.view',
                 'shortcode.view',
                 'shortcode.view_all',
                 'services.view',

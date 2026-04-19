@@ -106,7 +106,6 @@ class LoginController extends Controller
 
                 foreach ([
                     'dashboard' => '/dashboard',
-                    'documentation' => '/documentation',
                     'shortcode' => '/shortcode',
                     'services' => '/services',
                     'transaction' => '/transaction',

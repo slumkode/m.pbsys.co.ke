@@ -26,6 +26,12 @@ This project uses semantic versioning:
 
 - Nothing yet.
 
+## [1.1.1] - 2026-04-19
+
+### Bug Fixes
+
+- Hid the API Documentation URL from the admin sidebar navigation and removed the documentation permission from the access catalog.
+
 ## [1.1.0] - 2026-04-18
 
 ### Features

@@ -60,4 +60,29 @@ class GitHubSetupTest extends TestCase
         $this->assertStringContainsString('name="remember"', $loginView);
         $this->assertStringContainsString('checked', $loginView);
     }
+
+    public function testSidebarDoesNotExposeApiDocumentationLink()
+    {
+        $sidebarView = file_get_contents($this->rootPath.'/resources/views/admin/includes/sidebar.blade.php');
+
+        $this->assertStringNotContainsString("route('documentation.index')", $sidebarView);
+        $this->assertStringNotContainsString('API Documentation', $sidebarView);
+    }
+
+    public function testDocumentationPermissionIsNotRegistered()
+    {
+        $userModel = file_get_contents($this->rootPath.'/app/User.php');
+        $accessMigration = file_get_contents($this->rootPath.'/database/migrations/2026_04_10_000100_create_advanced_access_control_tables.php');
+        $internalRoleMigration = file_get_contents($this->rootPath.'/database/migrations/2026_04_10_000200_add_internal_visibility_permissions.php');
+
+        $this->assertStringNotContainsString("'documentation'", $userModel);
+        $this->assertStringNotContainsString('documentation.view', $userModel);
+        $this->assertStringNotContainsString('documentation.view', $accessMigration);
+        $this->assertStringNotContainsString('documentation.view', $internalRoleMigration);
+    }
+
+    public function testDocumentationPermissionRemovalMigrationExists()
+    {
+        $this->assertFileExists($this->rootPath.'/database/migrations/2026_04_19_000000_remove_documentation_permission.php');
+    }
 }

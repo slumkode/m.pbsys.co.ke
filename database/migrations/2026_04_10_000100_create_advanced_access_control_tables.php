@@ -10,7 +10,6 @@ class CreateAdvancedAccessControlTables extends Migration
 {
     protected $permissions = [
         ['slug' => 'dashboard.view', 'name' => 'View Dashboard', 'page_name' => 'Dashboard', 'action_name' => 'view', 'description' => 'Open dashboard summaries and reports.'],
-        ['slug' => 'documentation.view', 'name' => 'View Documentation', 'page_name' => 'API Documentation', 'action_name' => 'view', 'description' => 'Open the MPesa API documentation and sandbox page.'],
         ['slug' => 'shortcode.view', 'name' => 'View Shortcodes', 'page_name' => 'Shortcode', 'action_name' => 'view', 'description' => 'View shortcodes assigned to the user.'],
         ['slug' => 'shortcode.create', 'name' => 'Create Shortcodes', 'page_name' => 'Shortcode', 'action_name' => 'create', 'description' => 'Add new shortcodes.'],
         ['slug' => 'shortcode.update', 'name' => 'Update Shortcodes', 'page_name' => 'Shortcode', 'action_name' => 'update', 'description' => 'Edit shortcode details and notification status.'],
@@ -124,7 +123,6 @@ class CreateAdvancedAccessControlTables extends Migration
 
         $customerDefaultSlugs = [
             'dashboard.view',
-            'documentation.view',
             'shortcode.view',
             'services.view',
             'transaction.view',

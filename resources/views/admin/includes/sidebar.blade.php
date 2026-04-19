@@ -6,13 +6,12 @@
 
         @php($currentUser = Auth::user())
         @php($hasAuditLogsRoute = Route::has('audit-logs.index'))
-        @php($hasDocumentationRoute = Route::has('documentation.index'))
         @php($hasRolesRoute = Route::has('roles.index'))
         @php($hasKeywordsRoute = Route::has('keywords.index'))
         @php($hasTransactionReportsRoute = Route::has('transaction-reports.index'))
         @php($canManageKeywords = $currentUser && $currentUser->hasPermission('users.update') && $hasKeywordsRoute)
         <ul class="sidebar-nav">
-            @if($currentUser && ($currentUser->canAccessPage('dashboard') || $currentUser->canAccessPage('shortcode') || $currentUser->canAccessPage('services') || $canManageKeywords || $currentUser->canAccessPage('transaction') || ($currentUser->canAccessPage('transaction_reports') && $hasTransactionReportsRoute) || ($currentUser->canAccessPage('documentation') && $hasDocumentationRoute)))
+            @if($currentUser && ($currentUser->canAccessPage('dashboard') || $currentUser->canAccessPage('shortcode') || $currentUser->canAccessPage('services') || $canManageKeywords || $currentUser->canAccessPage('transaction') || ($currentUser->canAccessPage('transaction_reports') && $hasTransactionReportsRoute)))
                 <li class="sidebar-header">
                     Main
                 </li>
@@ -64,15 +63,6 @@
                     <a class="sidebar-link font-weight-bold" href="{{ route('transaction-reports.index') }}">
                         <i class="align-middle" data-feather="bar-chart-2"></i>
                         <span class="align-middle">Transaction Reports</span>
-                    </a>
-                </li>
-            @endif
-
-            @if($currentUser && $currentUser->canAccessPage('documentation') && $hasDocumentationRoute)
-                <li class="sidebar-item {{ Request::is('documentation') ? 'active' : '' }}">
-                    <a class="sidebar-link font-weight-bold" href="{{ route('documentation.index') }}">
-                        <i class="align-middle" data-feather="book-open"></i>
-                        <span class="align-middle">API Documentation</span>
                     </a>
                 </li>
             @endif
