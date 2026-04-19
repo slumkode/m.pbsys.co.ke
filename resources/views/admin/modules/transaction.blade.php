@@ -50,7 +50,17 @@
                     "url": "{{ url('alltrans') }}",
                     "dataType": "json",
                     "type": "POST",
-                    "data":{ _token: "{{csrf_token()}}", date_start: @json(request('start')), date_end: @json(request('end')), keyword_id: @json(request('keyword'))}
+                    "headers": { "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr('content') },
+                    "data":{
+                        date_start: @json(request('start')),
+                        date_end: @json(request('end')),
+                        shortcode_id: @json(request('shortcode_id')),
+                        service_key: @json(request('service_key')),
+                        keyword_id: @json(request('keyword', request('keyword_id'))),
+                        account: @json(request('account')),
+                        transaction_code: @json(request('transaction_code')),
+                        customer: @json(request('customer'))
+                    }
                 },
                 "columns": [
                     { "data": "shortcode" },

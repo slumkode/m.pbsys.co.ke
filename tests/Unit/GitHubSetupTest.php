@@ -115,6 +115,30 @@ class GitHubSetupTest extends TestCase
         $this->assertStringContainsString('$this->applyAccountKeywordTransactionRule($query, $keywordRule);', $reportController);
     }
 
+    public function testTransactionReportDrilldownKeepsActiveFilters()
+    {
+        $reportController = file_get_contents($this->rootPath.'/app/Http/Controllers/TransactionReportController.php');
+        $transactionView = file_get_contents($this->rootPath.'/resources/views/admin/modules/transaction.blade.php');
+        $datatableController = file_get_contents($this->rootPath.'/app/Http/Controllers/Datatables.php');
+
+        $this->assertStringContainsString('reportDetailQuery', $reportController);
+        $this->assertStringContainsString('$this->resolveDateRange', $reportController);
+        $this->assertStringContainsString('$dateFrom->greaterThan($detailStart)', $reportController);
+        $this->assertStringContainsString('$dateTo->lessThan($detailEnd)', $reportController);
+        $this->assertStringContainsString("'shortcode_id' => 'shortcode_id'", $reportController);
+        $this->assertStringContainsString("'service_key' => 'service_key'", $reportController);
+        $this->assertStringContainsString("'keyword_id' => 'keyword'", $reportController);
+        $this->assertStringContainsString("'account' => 'account'", $reportController);
+        $this->assertStringContainsString("'transaction_code' => 'transaction_code'", $reportController);
+        $this->assertStringContainsString("'customer' => 'customer'", $reportController);
+        $this->assertStringContainsString('shortcode_id: @json(request(\'shortcode_id\'))', $transactionView);
+        $this->assertStringContainsString('service_key: @json(request(\'service_key\'))', $transactionView);
+        $this->assertStringContainsString('account: @json(request(\'account\'))', $transactionView);
+        $this->assertStringContainsString('transaction_code: @json(request(\'transaction_code\'))', $transactionView);
+        $this->assertStringContainsString('customer: @json(request(\'customer\'))', $transactionView);
+        $this->assertStringContainsString('applyTransactionRequestFilters', $datatableController);
+    }
+
     public function testReportingPerformanceIndexesExist()
     {
         $this->assertFileExists($this->rootPath.'/database/migrations/2026_04_19_001000_add_transaction_reporting_indexes.php');

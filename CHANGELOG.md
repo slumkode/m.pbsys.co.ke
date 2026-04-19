@@ -26,6 +26,12 @@ This project uses semantic versioning:
 
 - Nothing yet.
 
+## [1.3.2] - 2026-04-19
+
+### Bug Fixes
+
+- Kept Transaction Reports filters when opening a daily row's transaction drill-down.
+
 ## [1.3.1] - 2026-04-19
 
 ### Bug Fixes

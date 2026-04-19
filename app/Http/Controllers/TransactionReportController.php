@@ -71,18 +71,10 @@ class TransactionReportController extends Controller
             ->get();
 
         $data = [];
-        $keywordId = (int) $request->input('keyword_id');
 
         foreach ($reports as $report) {
             $day = Carbon::parse($report->report_day);
-            $detailQuery = [
-                'start' => $day->copy()->startOfDay()->format('Y-m-d H:i:s'),
-                'end' => $day->copy()->endOfDay()->format('Y-m-d H:i:s'),
-            ];
-
-            if ($keywordId > 0) {
-                $detailQuery['keyword'] = $keywordId;
-            }
+            $detailQuery = $this->reportDetailQuery($day, $request);
 
             $details = $authUser->hasPermission('transaction.view')
                 ? '<a class="btn btn-default btn-sm" href="'.url('/transaction').'?'.http_build_query($detailQuery).'">View Transactions</a>'
@@ -104,6 +96,48 @@ class TransactionReportController extends Controller
             'recordsFiltered' => intval($totalFiltered),
             'data' => $data,
         ]);
+    }
+
+    protected function reportDetailQuery(Carbon $day, Request $request)
+    {
+        list($dateFrom, $dateTo) = $this->resolveDateRange(
+            $request->input('date_from'),
+            $request->input('date_to')
+        );
+        $detailStart = $day->copy()->startOfDay();
+        $detailEnd = $day->copy()->endOfDay();
+
+        if ($dateFrom && $dateFrom->greaterThan($detailStart)) {
+            $detailStart = $dateFrom->copy();
+        }
+
+        if ($dateTo && $dateTo->lessThan($detailEnd)) {
+            $detailEnd = $dateTo->copy();
+        }
+
+        $detailQuery = [
+            'start' => $detailStart->format('Y-m-d H:i:s'),
+            'end' => $detailEnd->format('Y-m-d H:i:s'),
+        ];
+
+        $filters = [
+            'shortcode_id' => 'shortcode_id',
+            'service_key' => 'service_key',
+            'keyword_id' => 'keyword',
+            'account' => 'account',
+            'transaction_code' => 'transaction_code',
+            'customer' => 'customer',
+        ];
+
+        foreach ($filters as $requestKey => $queryKey) {
+            $value = trim((string) $request->input($requestKey));
+
+            if ($value !== '' && $value !== '0') {
+                $detailQuery[$queryKey] = $value;
+            }
+        }
+
+        return $detailQuery;
     }
 
     protected function applyFilters(User $authUser, $query, Request $request)

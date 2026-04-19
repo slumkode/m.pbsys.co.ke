@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Shortcode;
 use App\Models\Transaction;
+use App\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -18,15 +19,6 @@ class Datatables extends Controller
     {
         $authUser = $this->requireActionPermission($request, 'transaction', 'view');
         $query = Transaction::query();
-        $keywordId = (int) $request->input('keyword_id');
-
-        if ($keywordId > 0) {
-            $keywordRule = $this->transactionKeywordRuleForUser($authUser, $keywordId);
-
-            abort_if(! $keywordRule, 403, 'You do not have permission to view transactions for this keyword.');
-
-            $this->applyAccountKeywordTransactionRule($query, $keywordRule);
-        }
 
         $this->applyTransactionVisibility($authUser, $query);
 
@@ -91,6 +83,8 @@ class Datatables extends Controller
         if ($endDate) {
             $query->where('trans_time', '<=', $endDate->format('Y-m-d H:i:s'));
         }
+
+        $this->applyTransactionRequestFilters($request, $authUser, $query);
 
         $columns = [
             0 => 'shortcode_id',
@@ -162,6 +156,56 @@ class Datatables extends Controller
             'data' => $data,
             'total' => $sum,
         ]);
+    }
+
+    protected function applyTransactionRequestFilters(Request $request, User $authUser, $query)
+    {
+        $shortcodeId = (int) $request->input('shortcode_id');
+        $serviceKey = trim((string) $request->input('service_key'));
+        $keywordId = (int) $request->input('keyword_id');
+        $account = trim((string) $request->input('account'));
+        $transactionCode = trim((string) $request->input('transaction_code'));
+        $customer = trim((string) $request->input('customer'));
+
+        if ($shortcodeId > 0) {
+            $query->where('shortcode_id', $shortcodeId);
+        }
+
+        if ($serviceKey !== '') {
+            $parts = explode('|', $serviceKey, 2);
+
+            if (count($parts) === 2) {
+                $query->where('shortcode_id', (int) $parts[0])
+                    ->where('type', $parts[1]);
+            }
+        }
+
+        if ($keywordId > 0) {
+            $keywordRule = $this->transactionKeywordRuleForUser($authUser, $keywordId);
+
+            abort_if(! $keywordRule, 403, 'You do not have permission to view transactions for this keyword.');
+
+            $this->applyAccountKeywordTransactionRule($query, $keywordRule);
+        }
+
+        if ($account !== '' || $transactionCode !== '' || $customer !== '') {
+            abort_if(! $authUser->hasPermission('transaction.search'), 403, 'You do not have permission to search transactions.');
+        }
+
+        if ($account !== '') {
+            $query->where('account', 'LIKE', "%{$account}%");
+        }
+
+        if ($transactionCode !== '') {
+            $query->where('transaction_code', 'LIKE', "%{$transactionCode}%");
+        }
+
+        if ($customer !== '') {
+            $query->where(function ($builder) use ($customer) {
+                $builder->where('customer_name', 'LIKE', "%{$customer}%")
+                    ->orWhere('msisdn', 'LIKE', "%{$customer}%");
+            });
+        }
     }
 
     protected function parseTransactionFilterDate($value, $endOfDay = false)
