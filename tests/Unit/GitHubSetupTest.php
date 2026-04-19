@@ -115,6 +115,17 @@ class GitHubSetupTest extends TestCase
         $this->assertStringContainsString('$this->applyAccountKeywordTransactionRule($query, $keywordRule);', $reportController);
     }
 
+    public function testTransactionReportsDoNotShowSecondFilterRow()
+    {
+        $reportView = file_get_contents($this->rootPath.'/resources/views/admin/modules/transaction-reports.blade.php');
+
+        $this->assertStringNotContainsString('report-account-search', $reportView);
+        $this->assertStringNotContainsString('report-code-search', $reportView);
+        $this->assertStringNotContainsString('report-customer-search', $reportView);
+        $this->assertStringNotContainsString('reset-report-filters', $reportView);
+        $this->assertStringNotContainsString('queueReload', $reportView);
+    }
+
     public function testTransactionReportDrilldownKeepsActiveFilters()
     {
         $reportController = file_get_contents($this->rootPath.'/app/Http/Controllers/TransactionReportController.php');

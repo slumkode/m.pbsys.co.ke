@@ -3,7 +3,6 @@
 @section('subtitle','Transaction Reports')
 @section('content')
     @php
-        $canSearchTransactions = $authUser->hasPermission('transaction.search');
         $canDownloadTransactions = $authUser->hasPermission('transaction.download');
         $transactionExportButtons = [];
         if ($canDownloadTransactions) {
@@ -52,29 +51,6 @@
                     </select>
                 </div>
             </div>
-            <div class="form-row">
-                @if($canSearchTransactions)
-                    <div class="col-md-3 mb-3">
-                        <label for="report-account-search" class="control-label">Account</label>
-                        <input type="text" id="report-account-search" class="form-control" placeholder="Account number">
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="report-code-search" class="control-label">Trans ID</label>
-                        <input type="text" id="report-code-search" class="form-control" placeholder="Transaction code">
-                    </div>
-                    <div class="col-md-3 mb-3">
-                        <label for="report-customer-search" class="control-label">Customer / MSISDN</label>
-                        <input type="text" id="report-customer-search" class="form-control" placeholder="Customer or phone">
-                    </div>
-                    <div class="col-md-3 mb-3 d-flex align-items-end justify-content-md-end">
-                        <button type="button" class="btn btn-default" id="reset-report-filters">Reset Search</button>
-                    </div>
-                @else
-                    <div class="col-md-12 mb-3 d-flex align-items-end justify-content-md-end">
-                        <button type="button" class="btn btn-default" id="reset-report-filters">Reset Search</button>
-                    </div>
-                @endif
-            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -97,7 +73,6 @@
 @section('script')
     <script>
         $(function () {
-            var reloadTimer = null;
             var defaultStart = moment(@json($defaultDateFrom->format('Y-m-d H:i:s')), 'YYYY-MM-DD HH:mm:ss');
             var defaultEnd = moment(@json($defaultDateTo->format('Y-m-d H:i:s')), 'YYYY-MM-DD HH:mm:ss');
 
@@ -125,9 +100,6 @@
                         d.shortcode_id = $('#report-shortcode-id').val();
                         d.service_key = $('#report-service-key').val();
                         d.keyword_id = $('#report-keyword-id').val();
-                        d.account = $('#report-account-search').val();
-                        d.transaction_code = $('#report-code-search').val();
-                        d.customer = $('#report-customer-search').val();
                     },
                     error: function (xhr) {
                         toastr.error(
@@ -155,11 +127,6 @@
 
             function reloadReports() {
                 reportTable.ajax.reload(null, true);
-            }
-
-            function queueReload() {
-                clearTimeout(reloadTimer);
-                reloadTimer = setTimeout(reloadReports, 350);
             }
 
             $('#report-date-range').daterangepicker({
@@ -191,20 +158,6 @@
             });
 
             $('#report-shortcode-id, #report-service-key, #report-keyword-id').on('change', reloadReports);
-            $('#report-account-search, #report-code-search, #report-customer-search').on('keyup change', queueReload);
-
-            $('#reset-report-filters').on('click', function () {
-                $('#report-shortcode-id').val('');
-                $('#report-service-key').val('');
-                $('#report-keyword-id').val('');
-                $('#report-account-search').val('');
-                $('#report-code-search').val('');
-                $('#report-customer-search').val('');
-                $('#report-date-from').val(defaultStart.format('YYYY-MM-DD HH:mm:ss'));
-                $('#report-date-to').val(defaultEnd.format('YYYY-MM-DD HH:mm:ss'));
-                $('#report-date-range').val(defaultStart.format('DD/MM/YYYY HH:mm') + ' - ' + defaultEnd.format('DD/MM/YYYY HH:mm'));
-                reloadReports();
-            });
         });
     </script>
 @endsection

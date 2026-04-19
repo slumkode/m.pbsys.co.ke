@@ -26,6 +26,12 @@ This project uses semantic versioning:
 
 - Nothing yet.
 
+## [1.3.3] - 2026-04-19
+
+### Bug Fixes
+
+- Removed the second Transaction Reports filter row from the report page.
+
 ## [1.3.2] - 2026-04-19
 
 ### Bug Fixes
